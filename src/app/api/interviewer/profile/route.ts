@@ -7,11 +7,24 @@ export async function GET() {
   try {
     const user = await requireAuth(['INTERVIEWER', 'ADMIN']);
 
-    const profile = await prisma.interviewerProfile.findUnique({
-      where: { userId: user.id },
-    });
+    const [profile, userData] = await Promise.all([
+      prisma.interviewerProfile.findUnique({
+        where: { userId: user.id },
+      }),
+      // ✅ Also fetch user data (name, email, profilePicture, provider)
+      prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          profilePicture: true,
+          provider: true,
+        },
+      }),
+    ]);
 
-    return NextResponse.json({ profile });
+    return NextResponse.json({ profile, user: userData });
   } catch (error: any) {
     console.error('Get interviewer profile error:', error);
     return NextResponse.json(
@@ -44,7 +57,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate enums
     const validDifficultyLevels = difficultyLevels.every((level: string) =>
       ['EASY', 'MEDIUM', 'HARD'].includes(level)
     );
@@ -85,7 +97,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ profile });
+    // Also return user data in POST response
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        profilePicture: true,
+        provider: true,
+      },
+    });
+
+    return NextResponse.json({ profile, user: userData });
   } catch (error: any) {
     console.error('Create/update interviewer profile error:', error);
     return NextResponse.json(

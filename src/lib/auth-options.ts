@@ -1,8 +1,10 @@
+// FINAL CORRECT VERSION - Role passed via pre-set cookie before OAuth starts
 import { AuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
+import { isAdminEmail } from './auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
 
@@ -26,66 +28,84 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, account, profile }) {
       console.log('🔍 [jwt] Callback - account:', !!account, 'profile:', !!profile);
-      
-      // ONLY runs on initial sign-in when account exists
+
       if (account?.provider === 'google' && profile?.email) {
         console.log('✅ [jwt] Google sign-in detected!');
-        
+
         try {
           const email = profile.email;
           const googleId = account.providerAccountId;
           const name = (profile as any).name || email.split('@')[0];
           const profilePicture = (profile as any).picture || null;
+
+          // ✅ Read the role from the cookie set during redirect()
+          const cookieStore = await cookies();
+          const pendingRole = cookieStore.get('pending-oauth-role')?.value || 'STUDENT';
           
-          console.log('📸 [jwt] Profile data:', { name, profilePicture });
-          
-          // Find or create user
+          // Clear it immediately after reading
+          cookieStore.delete('pending-oauth-role');
+
+          // Determine final role
+          let requestedRole = pendingRole;
+          if (isAdminEmail(email)) {
+            requestedRole = 'ADMIN';
+          }
+
+          console.log('🎯 [jwt] Role from cookie:', requestedRole);
+
+          // Find existing user
           let user = await prisma.user.findUnique({
             where: { email },
           });
 
           if (user) {
-            console.log('✅ User found:', user.id);
-            // Update with Google data if not set
+            console.log('✅ [jwt] Existing user found:', user.id, 'Role:', user.role);
+
             await prisma.user.update({
               where: { id: user.id },
-              data: { 
+              data: {
                 googleId,
                 provider: 'GOOGLE',
-                name: name,
-                profilePicture: profilePicture,
+                name,
+                profilePicture,
+                emailVerified: true,
               },
             });
+
+            token.userRole = user.role;
+
           } else {
-            console.log('✅ Creating new user');
+            console.log('✅ [jwt] Creating NEW user with role:', requestedRole);
+
             user = await prisma.user.create({
               data: {
                 email,
                 name,
                 googleId,
-                role: 'STUDENT',
+                role: requestedRole as any,
                 provider: 'GOOGLE',
                 profilePicture,
-                passwordHash: '', // No password for Google accounts
+                emailVerified: true,
+                passwordHash: null,
               },
             });
-            console.log('✅ User created:', user.id);
+
+            console.log('✅ [jwt] User created:', user.id, 'Role:', user.role);
+            token.userRole = user.role;
           }
 
-          // Generate custom JWT
+          // Generate custom JWT with CORRECT role
           const customToken = generateToken({
             userId: user.id,
             email: user.email,
             role: user.role,
           });
 
-          // Store in NextAuth token
           token.customToken = customToken;
           token.userId = user.id;
           token.userRole = user.role;
 
-          // Set our custom cookie
-          const cookieStore = await cookies();
+          // Set main auth cookie
           cookieStore.set('auth-token', customToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -94,16 +114,16 @@ export const authOptions: AuthOptions = {
             path: '/',
           });
 
-          console.log('✅ Cookie set, customToken generated!');
-          
+          console.log('✅ [jwt] Cookie set for user:', user.id, 'role:', user.role);
+
         } catch (error) {
-          console.error('❌ Error:', error);
+          console.error('❌ [jwt] Error:', error);
         }
       }
-      
+
       return token;
     },
-    
+
     async session({ session, token }) {
       if (token.customToken) {
         (session as any).customToken = token.customToken;
@@ -112,21 +132,61 @@ export const authOptions: AuthOptions = {
       }
       return session;
     },
-    
+
     async redirect({ url, baseUrl }) {
       console.log('🔍 [redirect] url:', url, 'baseUrl:', baseUrl);
-      
-      // After Google sign-in, redirect to student dashboard
+
       if (url.includes('/api/auth/callback/google')) {
-        console.log('✅ [redirect] Redirecting to dashboard');
-        return `${baseUrl}/student/dashboard`;
+        console.log('✅ [redirect] Google callback detected');
+
+        let requestedRole = 'STUDENT';
+
+        try {
+          const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+          const urlObj = new URL(fullUrl);
+          const callbackUrl = urlObj.searchParams.get('callbackUrl') || '';
+
+          if (callbackUrl.includes('INTERVIEWER') || url.includes('INTERVIEWER')) {
+            requestedRole = 'INTERVIEWER';
+          } else if (callbackUrl.includes('ADMIN') || url.includes('ADMIN')) {
+            requestedRole = 'ADMIN';
+          }
+
+          console.log('🎯 [redirect] Detected role:', requestedRole);
+
+          // ✅ Set role cookie BEFORE jwt() callback runs
+          const cookieStore = await cookies();
+          cookieStore.set('pending-oauth-role', requestedRole, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 60,
+            path: '/',
+          });
+
+          console.log('✅ [redirect] Role cookie set:', requestedRole);
+
+        } catch (err) {
+          console.log('⚠️ [redirect] URL parse error:', err);
+        }
+
+        if (requestedRole === 'INTERVIEWER') {
+          return `${baseUrl}/interviewer/dashboard`;
+        } else if (requestedRole === 'ADMIN') {
+          return `${baseUrl}/admin/dashboard`;
+        } else {
+          return `${baseUrl}/student/dashboard`;
+        }
       }
-      
-      // Allows relative callback URLs
+
       if (url.startsWith('/')) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      if (new URL(url).origin === baseUrl) return url;
-      
+
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch {
+        return baseUrl;
+      }
+
       return baseUrl;
     },
   },

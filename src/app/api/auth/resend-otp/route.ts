@@ -26,43 +26,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check rate limiting (prevent abuse)
-    // Only allow resending if last OTP was sent more than 1 minute ago
-    const lastSentTime = new Date(pendingUser.verificationTokenExpiry.getTime() - 10 * 60 * 1000);
-    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
-    
-    if (lastSentTime > oneMinuteAgo) {
+    // Check if account has expired (24 hours)
+    if (pendingUser.expiresAt < new Date()) {
+      // Delete expired pending user
+      await (prisma as any).pendingUser.delete({
+        where: { id: pendingUser.id },
+      });
+      
       return NextResponse.json(
-        { error: 'Please wait at least 1 minute before requesting a new code' },
-        { status: 429 }
+        { error: 'Signup session expired. Please sign up again.' },
+        { status: 400 }
       );
     }
 
     // Generate new OTP
-    const otp = generateOTP();
-    const expiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const newOtp = generateOTP();
+    const newExpiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Update pending user with new OTP
     await (prisma as any).pendingUser.update({
       where: { id: pendingUser.id },
       data: {
-        verificationToken: otp,
-        verificationTokenExpiry: expiryTime,
+        verificationToken: newOtp,
+        verificationTokenExpiry: newExpiryTime,
       },
     });
 
-    // Send verification email
-    await sendVerificationEmail(email, otp);
+    // Send new verification email
+    try {
+      await sendVerificationEmail(email, newOtp);
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+      return NextResponse.json(
+        { error: 'Failed to send verification email. Please try again in a moment.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
-      message: 'Verification code sent successfully',
+      message: 'Verification code sent successfully!',
       email,
     });
 
   } catch (error) {
     console.error('Resend OTP error:', error);
     return NextResponse.json(
-      { error: 'Failed to send verification code. Please try again.' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
