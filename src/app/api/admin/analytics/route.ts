@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, authErrorStatus } from '@/lib/auth';
 
 export async function GET() {
   try {
     await requireAuth(['ADMIN']);
 
+    // All counts in a single Promise.all — fire in parallel
     const [
       totalStudents,
       totalInterviewers,
@@ -16,6 +17,8 @@ export async function GET() {
       scheduledSessions,
       guidanceSessions,
       interviewSessions,
+      recentSessions,
+      topInterviewers,
     ] = await Promise.all([
       prisma.studentProfile.count(),
       prisma.interviewerProfile.count(),
@@ -26,35 +29,41 @@ export async function GET() {
       prisma.session.count({ where: { status: 'SCHEDULED' } }),
       prisma.session.count({ where: { sessionType: 'GUIDANCE' } }),
       prisma.session.count({ where: { sessionType: 'INTERVIEW' } }),
+      // Recent sessions with only required fields
+      prisma.session.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          sessionType: true,
+          status: true,
+          scheduledTime: true,
+          student: { select: { name: true } },
+          interviewer: { select: { name: true } },
+        },
+      }),
+      // Top interviewers using _count (no N+1 sessions fetch)
+      prisma.interviewerProfile.findMany({
+        take: 5,
+        where: { status: 'APPROVED' },
+        select: {
+          id: true,
+          name: true,
+          rolesSupported: true,
+          _count: {
+            select: { sessions: { where: { status: 'COMPLETED' } } },
+          },
+        },
+        orderBy: {
+          sessions: { _count: 'desc' },
+        },
+      }),
     ]);
 
-    // Recent sessions
-    const recentSessions = await prisma.session.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        student: true,
-        interviewer: true,
-      },
-    });
-
-    // Top interviewers by session count
-    const topInterviewers = await prisma.interviewerProfile.findMany({
-      take: 5,
-      where: { status: 'APPROVED' },
-      include: {
-        sessions: {
-          where: { status: 'COMPLETED' },
-        },
-      },
-    });
-
-    const topInterviewersWithCount = topInterviewers
-      .map(interviewer => ({
-        ...interviewer,
-        sessionCount: interviewer.sessions.length,
-      }))
-      .sort((a, b) => b.sessionCount - a.sessionCount);
+    const topInterviewersWithCount = topInterviewers.map(i => ({
+      ...i,
+      sessionCount: i._count.sessions,
+    }));
 
     return NextResponse.json({
       analytics: {
@@ -72,10 +81,9 @@ export async function GET() {
       topInterviewers: topInterviewersWithCount,
     });
   } catch (error: any) {
-    console.error('Get analytics error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Forbidden' ? 403 : 500 }
+      { status: authErrorStatus(error.message) }
     );
   }
 }

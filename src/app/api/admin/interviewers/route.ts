@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { InterviewerStatus } from '@prisma/client';
 
 export async function GET() {
@@ -10,15 +10,12 @@ export async function GET() {
     const interviewers = await prisma.interviewerProfile.findMany({
       include: {
         user: {
-          select: {
-            email: true,
-          },
+          select: { email: true, name: true, profilePicture: true, provider: true },
         },
-        sessions: {
-          where: {
-            status: 'SCHEDULED',
-            scheduledTime: {
-              gte: new Date(),
+        _count: {
+          select: {
+            sessions: {
+              where: { status: 'SCHEDULED', scheduledTime: { gte: new Date() } },
             },
           },
         },
@@ -28,10 +25,9 @@ export async function GET() {
 
     return NextResponse.json({ interviewers });
   } catch (error: any) {
-    console.error('Get interviewers error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Forbidden' ? 403 : 500 }
+      { status: authErrorStatus(error.message) }
     );
   }
 }
@@ -51,10 +47,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
     const interviewer = await prisma.interviewerProfile.update({
@@ -64,10 +57,9 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ interviewer });
   } catch (error: any) {
-    console.error('Update interviewer status error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Forbidden' ? 403 : 500 }
+      { status: authErrorStatus(error.message) }
     );
   }
 }

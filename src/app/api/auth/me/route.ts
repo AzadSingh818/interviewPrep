@@ -6,10 +6,7 @@ export async function GET() {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     return NextResponse.json({
@@ -17,15 +14,14 @@ export async function GET() {
         id: user.id,
         email: user.email,
         role: user.role,
+        name: user.name,
+        profilePicture: user.profilePicture,
+        provider: user.provider,
         studentProfile: user.studentProfile,
         interviewerProfile: user.interviewerProfile,
       },
     });
   } catch (error) {
-    console.error('Get current user error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

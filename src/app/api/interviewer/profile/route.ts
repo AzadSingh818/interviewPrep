@@ -1,42 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { DifficultyLevel, SessionType } from '@prisma/client';
 
 export async function GET() {
   try {
-    const user = await requireAuth(['INTERVIEWER', 'ADMIN']);
+    const { userId } = await requireAuth(['INTERVIEWER', 'ADMIN']);
 
-    const [profile, userData] = await Promise.all([
-      prisma.interviewerProfile.findUnique({
-        where: { userId: user.id },
-      }),
-      // ✅ Also fetch user data (name, email, profilePicture, provider)
-      prisma.user.findUnique({
-        where: { id: user.id },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          profilePicture: true,
-          provider: true,
-        },
-      }),
-    ]);
+    // Single query — fetches user + interviewer profile together
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        profilePicture: true,
+        provider: true,
+        interviewerProfile: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const { interviewerProfile: profile, ...userData } = user;
 
     return NextResponse.json({ profile, user: userData });
   } catch (error: any) {
-    console.error('Get interviewer profile error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Forbidden' ? 403 : 500 }
+      { status: authErrorStatus(error.message) }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth(['INTERVIEWER']);
+    const { userId } = await requireAuth(['INTERVIEWER']);
     const body = await request.json();
 
     const {
@@ -71,50 +72,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const profile = await prisma.interviewerProfile.upsert({
-      where: { userId: user.id },
-      update: {
-        name,
-        education,
-        companies: companies || [],
-        yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : null,
-        rolesSupported,
-        difficultyLevels: difficultyLevels as DifficultyLevel[],
-        sessionTypesOffered: sessionTypesOffered as SessionType[],
-        linkedinUrl,
-      },
-      create: {
-        userId: user.id,
-        name,
-        education,
-        companies: companies || [],
-        yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : null,
-        rolesSupported,
-        difficultyLevels: difficultyLevels as DifficultyLevel[],
-        sessionTypesOffered: sessionTypesOffered as SessionType[],
-        linkedinUrl,
-        status: 'PENDING',
-      },
-    });
-
-    // Also return user data in POST response
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        profilePicture: true,
-        provider: true,
-      },
-    });
+    // Upsert profile + fetch user data in parallel
+    const [profile, userData] = await Promise.all([
+      prisma.interviewerProfile.upsert({
+        where: { userId },
+        update: {
+          name,
+          education,
+          companies: companies || [],
+          yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : null,
+          rolesSupported,
+          difficultyLevels: difficultyLevels as DifficultyLevel[],
+          sessionTypesOffered: sessionTypesOffered as SessionType[],
+          linkedinUrl,
+        },
+        create: {
+          userId,
+          name,
+          education,
+          companies: companies || [],
+          yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : null,
+          rolesSupported,
+          difficultyLevels: difficultyLevels as DifficultyLevel[],
+          sessionTypesOffered: sessionTypesOffered as SessionType[],
+          linkedinUrl,
+          status: 'PENDING',
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          profilePicture: true,
+          provider: true,
+        },
+      }),
+    ]);
 
     return NextResponse.json({ profile, user: userData });
   } catch (error: any) {
-    console.error('Create/update interviewer profile error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Forbidden' ? 403 : 500 }
+      { status: authErrorStatus(error.message) }
     );
   }
 }

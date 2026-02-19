@@ -1,45 +1,45 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, authErrorStatus } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await requireAuth(['STUDENT']);
+    const { userId } = await requireAuth(['STUDENT']);
 
+    // Single query — finds profile and fetches sessions with nested data
     const studentProfile = await prisma.studentProfile.findUnique({
-      where: { userId: user.id },
+      where: { userId },
+      select: {
+        id: true,
+        sessions: {
+          orderBy: { scheduledTime: 'desc' },
+          include: {
+            interviewer: {
+              select: {
+                id: true,
+                name: true,
+                companies: true,
+                rolesSupported: true,
+                user: {
+                  select: { email: true },
+                },
+              },
+            },
+            feedback: true,
+          },
+        },
+      },
     });
 
     if (!studentProfile) {
-      return NextResponse.json(
-        { error: 'Student profile not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
     }
 
-    const sessions = await prisma.session.findMany({
-      where: { studentId: studentProfile.id },
-      include: {
-        interviewer: {
-          include: {
-            user: {
-              select: {
-                email: true,
-              },
-            },
-          },
-        },
-        feedback: true,
-      },
-      orderBy: { scheduledTime: 'desc' },
-    });
-
-    return NextResponse.json({ sessions });
+    return NextResponse.json({ sessions: studentProfile.sessions });
   } catch (error: any) {
-    console.error('Get student sessions error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Forbidden' ? 403 : 500 }
+      { status: authErrorStatus(error.message) }
     );
   }
 }

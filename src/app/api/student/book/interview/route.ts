@@ -1,79 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { DifficultyLevel, InterviewType } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth(['STUDENT']);
+    const { userId } = await requireAuth(['STUDENT']);
     const body = await request.json();
 
     const { role, difficulty, interviewType, durationMinutes, scheduledTime } = body;
 
     if (!role || !difficulty || !interviewType || !durationMinutes || !scheduledTime) {
-      return NextResponse.json(
-        { error: 'All fields are required' },
-        { status: 400 }
-      );
-    }
-
-    // Get student profile
-    const studentProfile = await prisma.studentProfile.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!studentProfile) {
-      return NextResponse.json(
-        { error: 'Please complete your profile first' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
     const scheduledDate = new Date(scheduledTime);
 
-    // AUTO-ASSIGNMENT LOGIC
-    // Find all approved interviewers who:
-    // 1. Support the selected role
-    // 2. Handle the selected difficulty
-    // 3. Offer interview sessions
-    // 4. Have an available slot at the requested time
-
-    const availableInterviewers = await prisma.interviewerProfile.findMany({
-      where: {
-        status: 'APPROVED',
-        rolesSupported: {
-          has: role,
-        },
-        difficultyLevels: {
-          has: difficulty as DifficultyLevel,
-        },
-        sessionTypesOffered: {
-          has: 'INTERVIEW',
-        },
-        availabilitySlots: {
-          some: {
-            startTime: scheduledDate,
-            isBooked: false,
+    // Fetch student profile + available interviewers in parallel
+    const [studentProfile, availableInterviewers] = await Promise.all([
+      prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } }),
+      prisma.interviewerProfile.findMany({
+        where: {
+          status: 'APPROVED',
+          rolesSupported: { has: role },
+          difficultyLevels: { has: difficulty as DifficultyLevel },
+          sessionTypesOffered: { has: 'INTERVIEW' },
+          availabilitySlots: {
+            some: { startTime: scheduledDate, isBooked: false },
           },
         },
-      },
-      include: {
-        sessions: {
-          where: {
-            scheduledTime: {
-              gte: new Date(),
+        select: {
+          id: true,
+          availabilitySlots: {
+            where: { startTime: scheduledDate, isBooked: false },
+            select: { id: true },
+          },
+          _count: {
+            select: {
+              sessions: {
+                where: { scheduledTime: { gte: new Date() }, status: 'SCHEDULED' },
+              },
             },
-            status: 'SCHEDULED',
           },
         },
-        availabilitySlots: {
-          where: {
-            startTime: scheduledDate,
-            isBooked: false,
-          },
-        },
-      },
-    });
+      }),
+    ]);
+
+    if (!studentProfile) {
+      return NextResponse.json({ error: 'Please complete your profile first' }, { status: 400 });
+    }
 
     if (availableInterviewers.length === 0) {
       return NextResponse.json(
@@ -82,14 +57,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load balancing: Choose interviewer with least upcoming sessions
-    const selectedInterviewer = availableInterviewers.reduce((prev, current) => {
-      return prev.sessions.length < current.sessions.length ? prev : current;
-    });
+    // Load balancing: pick interviewer with fewest upcoming sessions
+    const selectedInterviewer = availableInterviewers.reduce((prev, current) =>
+      prev._count.sessions <= current._count.sessions ? prev : current
+    );
 
-    const availableSlot = selectedInterviewer.availabilitySlots[0];
+    const slot = selectedInterviewer.availabilitySlots[0];
 
-    // Create session and mark slot as booked
+    // Create session + mark slot booked atomically
     const [session] = await prisma.$transaction([
       prisma.session.create({
         data: {
@@ -102,29 +77,19 @@ export async function POST(request: NextRequest) {
           durationMinutes: parseInt(durationMinutes),
           scheduledTime: scheduledDate,
         },
-        include: {
-          interviewer: true,
-        },
+        include: { interviewer: true },
       }),
       prisma.availabilitySlot.update({
-        where: { id: availableSlot.id },
+        where: { id: slot.id },
         data: { isBooked: true },
       }),
     ]);
 
-    return NextResponse.json({ 
-      session,
-      assignedInterviewer: {
-        id: selectedInterviewer.id,
-        name: selectedInterviewer.name,
-        companies: selectedInterviewer.companies,
-      }
-    });
+    return NextResponse.json({ session });
   } catch (error: any) {
-    console.error('Book interview session error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Forbidden' ? 403 : 500 }
+      { status: authErrorStatus(error.message) }
     );
   }
 }

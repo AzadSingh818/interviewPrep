@@ -26,7 +26,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 // ========================================
-// TOKEN FUNCTIONS (EXPORTED!)
+// TOKEN FUNCTIONS
 // ========================================
 
 export function generateToken(payload: JWTPayload): string {
@@ -42,7 +42,7 @@ export function verifyToken(token: string): JWTPayload | null {
 }
 
 // ========================================
-// COOKIE FUNCTIONS (EXPORTED!)
+// COOKIE FUNCTIONS
 // ========================================
 
 export async function setAuthCookie(token: string) {
@@ -58,14 +58,7 @@ export async function setAuthCookie(token: string) {
 
 export async function getAuthCookie(): Promise<string | undefined> {
   const cookieStore = await cookies();
-  const cookie = cookieStore.get('auth-token');
-  
-  console.log('🔍 [getAuthCookie] Cookie exists:', !!cookie);
-  if (cookie) {
-    console.log('🔍 [getAuthCookie] Cookie value length:', cookie.value.length);
-  }
-  
-  return cookie?.value;
+  return cookieStore.get('auth-token')?.value;
 }
 
 export async function removeAuthCookie() {
@@ -74,55 +67,58 @@ export async function removeAuthCookie() {
 }
 
 // ========================================
-// USER FUNCTIONS
+// FAST AUTH — JWT only, ZERO DB queries
+// Returns { userId, email, role }
+// Use this in all API routes
+// ========================================
+
+export async function requireAuth(allowedRoles?: UserRole[]): Promise<JWTPayload> {
+  const token = await getAuthCookie();
+  if (!token) throw new Error('Unauthorized');
+
+  const payload = verifyToken(token);
+  if (!payload) throw new Error('Unauthorized');
+
+  if (allowedRoles && !allowedRoles.includes(payload.role)) {
+    throw new Error('Forbidden');
+  }
+
+  return payload; // { userId, email, role }
+}
+
+// ========================================
+// FULL USER — hits DB, use only when you
+// actually need profile/picture/provider
+// (e.g. /api/auth/me)
 // ========================================
 
 export async function getCurrentUser() {
-  console.log('🔍 [getCurrentUser] Starting...');
-  
   const token = await getAuthCookie();
-  
-  if (!token) {
-    console.log('❌ [getCurrentUser] No token found');
-    return null;
-  }
+  if (!token) return null;
 
-  console.log('🔍 [getCurrentUser] Token found, verifying...');
-  
   const payload = verifyToken(token);
-  
-  if (!payload) {
-    console.log('❌ [getCurrentUser] Token verification failed');
-    return null;
-  }
+  if (!payload) return null;
 
-  console.log('🔍 [getCurrentUser] Token verified, payload:', {
-    userId: payload.userId,
-    email: payload.email,
-    role: payload.role
-  });
-
-  const user = await prisma.user.findUnique({
+  return prisma.user.findUnique({
     where: { id: payload.userId },
-    include: {
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      name: true,
+      profilePicture: true,
+      provider: true,
+      emailVerified: true,
       studentProfile: true,
-      interviewerProfile: true,
+      interviewerProfile: {
+        select: {
+          id: true,
+          status: true,
+          name: true,
+        },
+      },
     },
   });
-
-  if (user) {
-    console.log('✅ [getCurrentUser] User found:', {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      hasStudentProfile: !!user.studentProfile,
-      hasInterviewerProfile: !!user.interviewerProfile
-    });
-  } else {
-    console.log('❌ [getCurrentUser] User not found in database for userId:', payload.userId);
-  }
-
-  return user;
 }
 
 export function isAdminEmail(email: string): boolean {
@@ -130,25 +126,11 @@ export function isAdminEmail(email: string): boolean {
 }
 
 // ========================================
-// AUTH MIDDLEWARE (EXPORTED!)
+// SHARED ERROR RESPONSE HELPER
 // ========================================
 
-export async function requireAuth(allowedRoles?: UserRole[]) {
-  console.log('🔍 [requireAuth] Called with roles:', allowedRoles);
-  
-  const user = await getCurrentUser();
-  
-  if (!user) {
-    console.log('❌ [requireAuth] No user, throwing Unauthorized');
-    throw new Error('Unauthorized');
-  }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    console.log('❌ [requireAuth] User role not allowed. User role:', user.role, 'Allowed:', allowedRoles);
-    throw new Error('Forbidden');
-  }
-
-  console.log('✅ [requireAuth] User authorized:', { id: user.id, role: user.role });
-  
-  return user;
+export function authErrorStatus(message: string): number {
+  if (message === 'Unauthorized') return 401;
+  if (message === 'Forbidden') return 403;
+  return 500;
 }
