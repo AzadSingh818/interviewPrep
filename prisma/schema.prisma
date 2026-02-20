@@ -58,11 +58,11 @@ model InterviewerProfile {
   difficultyLevels    DifficultyLevel[]  @map("difficulty_levels")
   sessionTypesOffered SessionType[]      @map("session_types_offered")
   linkedinUrl         String?            @map("linkedin_url")
-  resumeUrl           String?            @map("resume_url")
-  idCardUrl           String?            @map("id_card_url")
   status              InterviewerStatus  @default(PENDING)
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
+  idCardUrl           String?            @map("id_card_url")
+  resumeUrl           String?            @map("resume_url")
   availabilitySlots   AvailabilitySlot[]
   feedback            Feedback[]
   user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
