@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card } from '@/components/ui/Card';
-import Link from 'next/link';
-import { formatDateTime } from '@/lib/utils';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/Card";
+import Link from "next/link";
+import { formatDateTime } from "@/lib/utils";
 
 export default function StudentSessionsPage() {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -17,23 +17,23 @@ export default function StudentSessionsPage() {
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch('/api/student/sessions');
+      const res = await fetch("/api/student/sessions");
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions || []);
       }
     } catch (error) {
-      console.error('Failed to fetch sessions:', error);
+      console.error("Failed to fetch sessions:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const upcomingSessions = sessions.filter(
-    (s) => s.status === 'SCHEDULED' && new Date(s.scheduledTime) > new Date()
+    (s) => s.status === "SCHEDULED" && new Date(s.scheduledTime) > new Date(),
   );
   const pastSessions = sessions.filter(
-    (s) => s.status === 'COMPLETED' || new Date(s.scheduledTime) < new Date()
+    (s) => s.status === "COMPLETED" || new Date(s.scheduledTime) < new Date(),
   );
 
   // Room is open 30 mins before and up to 2 hours after scheduled time
@@ -68,19 +68,23 @@ export default function StudentSessionsPage() {
             {upcomingSessions.map((session) => {
               const roomOpen = isRoomOpen(session.scheduledTime);
               // Only show Join Room for INTERVIEW sessions, not GUIDANCE
-              const canJoinRoom = session.sessionType === 'INTERVIEW';
+              const canJoinRoom = session.sessionType === "INTERVIEW";
 
               return (
                 <Card key={session.id} variant="bordered" className="p-6">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          session.sessionType === 'GUIDANCE'
-                            ? 'bg-indigo-100 text-indigo-700'
-                            : 'bg-violet-100 text-violet-700'
-                        }`}>
-                          {session.sessionType === 'GUIDANCE' ? '🎓 Guidance' : '💼 Interview'}
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            session.sessionType === "GUIDANCE"
+                              ? "bg-indigo-100 text-indigo-700"
+                              : "bg-violet-100 text-violet-700"
+                          }`}
+                        >
+                          {session.sessionType === "GUIDANCE"
+                            ? "🎓 Guidance"
+                            : "💼 Interview"}
                         </span>
                         <span className="text-sm text-slate-500">
                           {session.durationMinutes} minutes
@@ -93,10 +97,15 @@ export default function StudentSessionsPage() {
                         )}
                       </div>
                       <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                        {session.sessionType === 'GUIDANCE' ? session.topic : session.role}
+                        {session.sessionType === "GUIDANCE"
+                          ? session.topic
+                          : session.role}
                       </h3>
                       <p className="text-slate-600 mb-2">
-                        with <span className="font-medium">{session.interviewer.name}</span>
+                        with{" "}
+                        <span className="font-medium">
+                          {session.interviewer.name}
+                        </span>
                       </p>
                       <p className="text-sm text-slate-500">
                         📅 {formatDateTime(session.scheduledTime)}
@@ -107,18 +116,37 @@ export default function StudentSessionsPage() {
                     {canJoinRoom && (
                       <div className="ml-4 flex flex-col items-end gap-2">
                         <button
-                          onClick={() => router.push(`/student/interview-room/${session.id}`)}
+                          onClick={() =>
+                            window.open(
+                              `/student/interview-room/${session.id}`,
+                              "_blank",
+                              "width=1280,height=720,toolbar=no,menubar=no,scrollbars=no,location=no,status=no",
+                            )
+                          }
                           disabled={!roomOpen}
-                          title={!roomOpen ? 'Room opens 30 minutes before session' : 'Join live interview room'}
+                          title={
+                            !roomOpen
+                              ? "Room opens 30 minutes before session"
+                              : "Join live interview room"
+                          }
                           className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                             roomOpen
-                              ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-200 hover:scale-105 active:scale-95'
-                              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              ? "bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-200 hover:scale-105 active:scale-95"
+                              : "bg-slate-100 text-slate-400 cursor-not-allowed"
                           }`}
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
                           </svg>
                           {roomOpen ? (
                             <>
@@ -126,11 +154,13 @@ export default function StudentSessionsPage() {
                               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                             </>
                           ) : (
-                            'Room Not Open'
+                            "Room Not Open"
                           )}
                         </button>
                         {!roomOpen && (
-                          <p className="text-xs text-slate-400">Opens 30 mins before</p>
+                          <p className="text-xs text-slate-400">
+                            Opens 30 mins before
+                          </p>
                         )}
                       </div>
                     )}
@@ -158,24 +188,33 @@ export default function StudentSessionsPage() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        session.sessionType === 'GUIDANCE'
-                          ? 'bg-indigo-100 text-indigo-700'
-                          : 'bg-violet-100 text-violet-700'
-                      }`}>
-                        {session.sessionType === 'GUIDANCE' ? '🎓 Guidance' : '💼 Interview'}
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          session.sessionType === "GUIDANCE"
+                            ? "bg-indigo-100 text-indigo-700"
+                            : "bg-violet-100 text-violet-700"
+                        }`}
+                      >
+                        {session.sessionType === "GUIDANCE"
+                          ? "🎓 Guidance"
+                          : "💼 Interview"}
                       </span>
-                      {session.status === 'COMPLETED' && (
+                      {session.status === "COMPLETED" && (
                         <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
                           ✓ Completed
                         </span>
                       )}
                     </div>
                     <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                      {session.sessionType === 'GUIDANCE' ? session.topic : session.role}
+                      {session.sessionType === "GUIDANCE"
+                        ? session.topic
+                        : session.role}
                     </h3>
                     <p className="text-slate-600 mb-2">
-                      with <span className="font-medium">{session.interviewer.name}</span>
+                      with{" "}
+                      <span className="font-medium">
+                        {session.interviewer.name}
+                      </span>
                     </p>
                     <p className="text-sm text-slate-500">
                       📅 {formatDateTime(session.scheduledTime)}

@@ -12,6 +12,11 @@ export default function InterviewerLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  // 🚀 CRITICAL: Show ONLY clean interview window (no navbar, no sidebar)
+  if (pathname?.includes('/interview-room')) {
+    return <>{children}</>;
+  }
+
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);

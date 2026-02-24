@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/Button';
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // 🚀 CRITICAL FIX: Show ONLY interview screen (no dashboard UI)
+  if (pathname?.includes('/interview-room')) {
+    return <>{children}</>;
+  }
+
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
 
