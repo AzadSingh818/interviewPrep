@@ -8,7 +8,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-const PLAN_AMOUNT_PAISE = 9900; // ₹99 in paise
+const PLAN_AMOUNT_PAISE = 100; // ₹99 in paise
 
 export async function POST() {
   try {

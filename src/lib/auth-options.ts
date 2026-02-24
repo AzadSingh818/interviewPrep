@@ -41,11 +41,11 @@ export const authOptions: AuthOptions = {
           // ✅ Read the role from the cookie set during redirect()
           const cookieStore = await cookies();
           const pendingRole = cookieStore.get('pending-oauth-role')?.value || 'STUDENT';
-          
+
           // Clear it immediately after reading
           cookieStore.delete('pending-oauth-role');
 
-          // Determine final role
+          // Determine final role — admin email always wins
           let requestedRole = pendingRole;
           if (isAdminEmail(email)) {
             requestedRole = 'ADMIN';
@@ -61,6 +61,11 @@ export const authOptions: AuthOptions = {
           if (user) {
             console.log('✅ [jwt] Existing user found:', user.id, 'Role:', user.role);
 
+            // ✅ FIX: If user is logging in via a different role page (e.g., STUDENT
+            // logging in via /login/interviewer), update their role in the DB.
+            // Admin emails are never downgraded.
+            const finalRole = isAdminEmail(email) ? 'ADMIN' : requestedRole;
+
             await prisma.user.update({
               where: { id: user.id },
               data: {
@@ -69,10 +74,15 @@ export const authOptions: AuthOptions = {
                 name,
                 profilePicture,
                 emailVerified: true,
+                // ✅ Update role if it changed
+                role: finalRole as any,
               },
             });
 
-            token.userRole = user.role;
+            // Refresh user object with updated role
+            user = { ...user, role: finalRole as any };
+
+            console.log('✅ [jwt] User role set to:', finalRole);
 
           } else {
             console.log('✅ [jwt] Creating NEW user with role:', requestedRole);
@@ -91,7 +101,6 @@ export const authOptions: AuthOptions = {
             });
 
             console.log('✅ [jwt] User created:', user.id, 'Role:', user.role);
-            token.userRole = user.role;
           }
 
           // Generate custom JWT with CORRECT role
