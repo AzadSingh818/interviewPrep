@@ -100,7 +100,7 @@ export default function AdminAnalyticsPage() {
                 <div>
                   <p className="font-medium text-slate-900">{interviewer.name}</p>
                   <p className="text-sm text-slate-600">
-                    {interviewer.companies.slice(0, 2).join(', ')}
+                    {(interviewer.rolesSupported ?? []).slice(0, 2).join(', ')}
                   </p>
                 </div>
               </div>
