@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
 import { DifficultyLevel, InterviewType } from '@prisma/client';
+export const dynamic = 'force-dynamic';
 
+// ... rest of your route
 /**
  * Manual assignment endpoint for admins
  * Allows admins to manually assign an interviewer to a session
