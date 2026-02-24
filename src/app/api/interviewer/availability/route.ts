@@ -6,7 +6,6 @@ export async function GET() {
   try {
     const { userId } = await requireAuth(['INTERVIEWER']);
 
-    // Single query — profile + slots together
     const profile = await prisma.interviewerProfile.findUnique({
       where: { userId },
       select: {
@@ -41,6 +40,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Start time and end time are required' }, { status: 400 });
     }
 
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+
+    // Validate: end must be after start
+    if (end <= start) {
+      return NextResponse.json(
+        { error: 'End time must be after start time' },
+        { status: 400 }
+      );
+    }
+
+    // Validate: slot must be between 30 mins and 4 hours
+    const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+    if (durationMinutes < 30 || durationMinutes > 240) {
+      return NextResponse.json(
+        { error: 'Slot duration must be between 30 minutes and 4 hours' },
+        { status: 400 }
+      );
+    }
+
+    // Validate: slot must be in the future
+    if (start <= new Date()) {
+      return NextResponse.json(
+        { error: 'Availability slot must be in the future' },
+        { status: 400 }
+      );
+    }
+
     const profile = await prisma.interviewerProfile.findUnique({
       where: { userId },
       select: { id: true, status: true },
@@ -57,11 +84,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for overlapping slots — only check future slots, ignore expired ones
+    const overlapping = await prisma.availabilitySlot.findFirst({
+      where: {
+        interviewerId: profile.id,
+        isBooked: false,
+        endTime: { gt: new Date() }, // ✅ ignore expired/past slots
+        OR: [
+          { startTime: { lt: end }, endTime: { gt: start } },
+        ],
+      },
+    });
+
+    if (overlapping) {
+      return NextResponse.json(
+        { error: 'This time slot overlaps with an existing slot' },
+        { status: 400 }
+      );
+    }
+
     const slot = await prisma.availabilitySlot.create({
       data: {
         interviewerId: profile.id,
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
+        startTime: start,
+        endTime: end,
       },
     });
 
@@ -77,14 +123,24 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { userId } = await requireAuth(['INTERVIEWER']);
-    const body = await request.json();
-    const { slotId } = body;
 
-    if (!slotId) {
+    // Support both query param (?id=) and request body ({ slotId })
+    const url = new URL(request.url);
+    const queryId = url.searchParams.get('id');
+
+    let slotId: number;
+
+    if (queryId) {
+      slotId = parseInt(queryId);
+    } else {
+      const body = await request.json();
+      slotId = parseInt(body.slotId);
+    }
+
+    if (!slotId || isNaN(slotId)) {
       return NextResponse.json({ error: 'Slot ID is required' }, { status: 400 });
     }
 
-    // Verify slot belongs to this interviewer before deleting
     const profile = await prisma.interviewerProfile.findUnique({
       where: { userId },
       select: { id: true },
@@ -94,9 +150,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Interviewer profile not found' }, { status: 404 });
     }
 
-    await prisma.availabilitySlot.deleteMany({
-      where: { id: parseInt(slotId), interviewerId: profile.id, isBooked: false },
+    const deleted = await prisma.availabilitySlot.deleteMany({
+      where: { id: slotId, interviewerId: profile.id, isBooked: false },
     });
+
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { error: 'Slot not found or already booked' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

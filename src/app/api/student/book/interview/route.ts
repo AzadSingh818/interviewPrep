@@ -16,23 +16,48 @@ export async function POST(request: NextRequest) {
 
     const scheduledDate = new Date(scheduledTime);
 
-    // Fetch student profile + available interviewers in parallel
+    if (scheduledDate <= new Date()) {
+      return NextResponse.json(
+        { error: 'Scheduled time must be in the future' },
+        { status: 400 }
+      );
+    }
+
     const [studentProfile, availableInterviewers] = await Promise.all([
-      prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } }),
+      prisma.studentProfile.findUnique({
+        where: { userId },
+        select: {
+          id: true,
+          planType: true,
+          interviewsUsed: true,
+          interviewsLimit: true,
+          planExpiresAt: true,
+        },
+      }),
       prisma.interviewerProfile.findMany({
         where: {
           status: 'APPROVED',
-          rolesSupported: { has: role },
           difficultyLevels: { has: difficulty as DifficultyLevel },
           sessionTypesOffered: { has: 'INTERVIEW' },
+          interviewTypesOffered: { has: interviewType as InterviewType },
           availabilitySlots: {
-            some: { startTime: scheduledDate, isBooked: false },
+            some: {
+              startTime: { lte: scheduledDate },
+              endTime: { gte: scheduledDate },
+              isBooked: false,
+            },
           },
         },
         select: {
           id: true,
+          name: true,
+          rolesSupported: true,
           availabilitySlots: {
-            where: { startTime: scheduledDate, isBooked: false },
+            where: {
+              startTime: { lte: scheduledDate },
+              endTime: { gte: scheduledDate },
+              isBooked: false,
+            },
             select: { id: true },
           },
           _count: {
@@ -50,6 +75,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Please complete your profile first' }, { status: 400 });
     }
 
+    // ── Check if plan has expired (auto-downgrade to FREE) ───────────────────
+    const now = new Date();
+    const planExpired =
+      studentProfile.planType === 'PRO' &&
+      studentProfile.planExpiresAt &&
+      studentProfile.planExpiresAt < now;
+
+    if (planExpired) {
+      await prisma.studentProfile.update({
+        where: { id: studentProfile.id },
+        data: {
+          planType: 'FREE',
+          guidanceLimit: 5,
+          interviewsLimit: 5,
+          guidanceUsed: 0,
+          interviewsUsed: 0,
+          planExpiresAt: null,
+        },
+      });
+      studentProfile.planType = 'FREE';
+      studentProfile.interviewsUsed = 0;
+      studentProfile.interviewsLimit = 5;
+    }
+
+    // ── Quota check ──────────────────────────────────────────────────────────
+    if (studentProfile.interviewsUsed >= studentProfile.interviewsLimit) {
+      return NextResponse.json(
+        {
+          error: 'LIMIT_REACHED',
+          message:
+            studentProfile.planType === 'FREE'
+              ? 'You have used all 5 free interviews. Upgrade to Pro for ₹99/month to get 10 more.'
+              : 'You have used all 10 interviews for this month. Renew your plan to continue.',
+          planType: studentProfile.planType,
+          used: studentProfile.interviewsUsed,
+          limit: studentProfile.interviewsLimit,
+        },
+        { status: 403 }
+      );
+    }
+
     if (availableInterviewers.length === 0) {
       return NextResponse.json(
         { error: 'No interviewers available for the selected criteria and time slot' },
@@ -57,14 +123,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load balancing: pick interviewer with fewest upcoming sessions
-    const selectedInterviewer = availableInterviewers.reduce((prev, current) =>
+    // Prefer interviewers who support the student's role, then load-balance
+    const roleNormalized = role.toLowerCase().trim();
+    const withRoleMatch = availableInterviewers.filter((i) =>
+      i.rolesSupported.some(
+        (r) =>
+          r.toLowerCase().includes(roleNormalized) ||
+          roleNormalized.includes(r.toLowerCase())
+      )
+    );
+    const pool = withRoleMatch.length > 0 ? withRoleMatch : availableInterviewers;
+    const selectedInterviewer = pool.reduce((prev, current) =>
       prev._count.sessions <= current._count.sessions ? prev : current
     );
 
     const slot = selectedInterviewer.availabilitySlots[0];
+    if (!slot) {
+      return NextResponse.json(
+        { error: 'No available slot found. Please try again.' },
+        { status: 400 }
+      );
+    }
 
-    // Create session + mark slot booked atomically
+    // ── Create session + mark slot booked + increment usage atomically ────────
     const [session] = await prisma.$transaction([
       prisma.session.create({
         data: {
@@ -77,15 +158,25 @@ export async function POST(request: NextRequest) {
           durationMinutes: parseInt(durationMinutes),
           scheduledTime: scheduledDate,
         },
-        include: { interviewer: true },
+        include: { interviewer: { select: { name: true } } },
       }),
       prisma.availabilitySlot.update({
         where: { id: slot.id },
         data: { isBooked: true },
       }),
+      prisma.studentProfile.update({
+        where: { id: studentProfile.id },
+        data: { interviewsUsed: { increment: 1 } },
+      }),
     ]);
 
-    return NextResponse.json({ session });
+    return NextResponse.json({
+      session,
+      assignedInterviewer: {
+        id: selectedInterviewer.id,
+        name: selectedInterviewer.name,
+      },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
