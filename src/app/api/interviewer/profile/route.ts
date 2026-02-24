@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
-import { DifficultyLevel, SessionType } from '@prisma/client';
+import { DifficultyLevel, SessionType, InterviewType } from '@prisma/client';
 
 export async function GET() {
   try {
     const { userId } = await requireAuth(['INTERVIEWER', 'ADMIN']);
 
-    // Single query — fetches user + interviewer profile together
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -25,7 +24,6 @@ export async function GET() {
     }
 
     const { interviewerProfile: profile, ...userData } = user;
-
     return NextResponse.json({ profile, user: userData });
   } catch (error: any) {
     return NextResponse.json(
@@ -48,9 +46,11 @@ export async function POST(request: NextRequest) {
       rolesSupported,
       difficultyLevels,
       sessionTypesOffered,
+      interviewTypesOffered, // ✅ NEW
       linkedinUrl,
     } = body;
 
+    // Base validation
     if (!name || !rolesSupported?.length || !difficultyLevels?.length || !sessionTypesOffered?.length) {
       return NextResponse.json(
         { error: 'Name, roles, difficulty levels, and session types are required' },
@@ -58,56 +58,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validDifficultyLevels = difficultyLevels.every((level: string) =>
-      ['EASY', 'MEDIUM', 'HARD'].includes(level)
-    );
-    const validSessionTypes = sessionTypesOffered.every((type: string) =>
-      ['GUIDANCE', 'INTERVIEW'].includes(type)
-    );
-
-    if (!validDifficultyLevels || !validSessionTypes) {
+    // If INTERVIEW session type is selected, must pick at least one interview type
+    if (sessionTypesOffered.includes('INTERVIEW') && !interviewTypesOffered?.length) {
       return NextResponse.json(
-        { error: 'Invalid difficulty levels or session types' },
+        { error: 'Please select at least one interview type (Technical, HR, or Mixed)' },
         { status: 400 }
       );
     }
 
-    // Upsert profile + fetch user data in parallel
+    // Validate enum values
+    const validDifficulty = difficultyLevels.every((l: string) =>
+      ['EASY', 'MEDIUM', 'HARD'].includes(l)
+    );
+    const validSessionTypes = sessionTypesOffered.every((t: string) =>
+      ['GUIDANCE', 'INTERVIEW'].includes(t)
+    );
+    const validInterviewTypes = (interviewTypesOffered || []).every((t: string) =>
+      ['TECHNICAL', 'HR', 'MIXED'].includes(t)
+    );
+
+    if (!validDifficulty || !validSessionTypes || !validInterviewTypes) {
+      return NextResponse.json(
+        { error: 'Invalid difficulty levels, session types, or interview types' },
+        { status: 400 }
+      );
+    }
+
+    const profileData = {
+      name,
+      education,
+      companies: companies || [],
+      yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : null,
+      rolesSupported,
+      difficultyLevels: difficultyLevels as DifficultyLevel[],
+      sessionTypesOffered: sessionTypesOffered as SessionType[],
+      // Clear interviewTypesOffered if INTERVIEW is not selected
+      interviewTypesOffered: sessionTypesOffered.includes('INTERVIEW')
+        ? (interviewTypesOffered as InterviewType[])
+        : ([] as InterviewType[]),
+      linkedinUrl,
+    };
+
     const [profile, userData] = await Promise.all([
       prisma.interviewerProfile.upsert({
         where: { userId },
-        update: {
-          name,
-          education,
-          companies: companies || [],
-          yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : null,
-          rolesSupported,
-          difficultyLevels: difficultyLevels as DifficultyLevel[],
-          sessionTypesOffered: sessionTypesOffered as SessionType[],
-          linkedinUrl,
-        },
-        create: {
-          userId,
-          name,
-          education,
-          companies: companies || [],
-          yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience) : null,
-          rolesSupported,
-          difficultyLevels: difficultyLevels as DifficultyLevel[],
-          sessionTypesOffered: sessionTypesOffered as SessionType[],
-          linkedinUrl,
-          status: 'PENDING',
-        },
+        update: profileData,
+        create: { userId, ...profileData, status: 'PENDING' },
       }),
       prisma.user.findUnique({
         where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          profilePicture: true,
-          provider: true,
-        },
+        select: { id: true, email: true, name: true, profilePicture: true, provider: true },
       }),
     ]);
 

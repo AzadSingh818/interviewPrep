@@ -13,9 +13,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
-    // Fetch student profile + verify interviewer in parallel
+    const scheduledDate = new Date(scheduledTime);
+
     const [studentProfile, interviewer] = await Promise.all([
-      prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } }),
+      prisma.studentProfile.findUnique({
+        where: { userId },
+        select: {
+          id: true,
+          planType: true,
+          guidanceUsed: true,
+          guidanceLimit: true,
+          planExpiresAt: true,
+        },
+      }),
       prisma.interviewerProfile.findUnique({
         where: { id: parseInt(interviewerId) },
         select: { id: true, status: true, sessionTypesOffered: true },
@@ -24,6 +34,49 @@ export async function POST(request: NextRequest) {
 
     if (!studentProfile) {
       return NextResponse.json({ error: 'Please complete your profile first' }, { status: 400 });
+    }
+
+    // ── Check if plan has expired (auto-downgrade to FREE) ───────────────────
+    const now = new Date();
+    const planExpired =
+      studentProfile.planType === 'PRO' &&
+      studentProfile.planExpiresAt &&
+      studentProfile.planExpiresAt < now;
+
+    if (planExpired) {
+      // Downgrade expired plan silently
+      await prisma.studentProfile.update({
+        where: { id: studentProfile.id },
+        data: {
+          planType: 'FREE',
+          guidanceLimit: 5,
+          interviewsLimit: 5,
+          guidanceUsed: 0,
+          interviewsUsed: 0,
+          planExpiresAt: null,
+        },
+      });
+      // Reflect the reset for the check below
+      studentProfile.planType = 'FREE';
+      studentProfile.guidanceUsed = 0;
+      studentProfile.guidanceLimit = 5;
+    }
+
+    // ── Quota check ──────────────────────────────────────────────────────────
+    if (studentProfile.guidanceUsed >= studentProfile.guidanceLimit) {
+      return NextResponse.json(
+        {
+          error: 'LIMIT_REACHED',
+          message:
+            studentProfile.planType === 'FREE'
+              ? 'You have used all 5 free guidance sessions. Upgrade to Pro for ₹99/month to get 10 more.'
+              : 'You have used all 10 guidance sessions for this month. Renew your plan to continue.',
+          planType: studentProfile.planType,
+          used: studentProfile.guidanceUsed,
+          limit: studentProfile.guidanceLimit,
+        },
+        { status: 403 }
+      );
     }
 
     if (!interviewer || interviewer.status !== 'APPROVED') {
@@ -37,11 +90,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find available slot
     const slot = await prisma.availabilitySlot.findFirst({
       where: {
         interviewerId: interviewer.id,
-        startTime: new Date(scheduledTime),
+        startTime: { lte: scheduledDate },
+        endTime: { gte: scheduledDate },
         isBooked: false,
       },
       select: { id: true },
@@ -51,7 +104,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Selected time slot is not available' }, { status: 400 });
     }
 
-    // Create session + mark slot booked atomically
+    // ── Create session + mark slot booked + increment usage atomically ────────
     const [session] = await prisma.$transaction([
       prisma.session.create({
         data: {
@@ -60,13 +113,17 @@ export async function POST(request: NextRequest) {
           sessionType: 'GUIDANCE',
           topic,
           durationMinutes: parseInt(durationMinutes),
-          scheduledTime: new Date(scheduledTime),
+          scheduledTime: scheduledDate,
         },
         include: { interviewer: true },
       }),
       prisma.availabilitySlot.update({
         where: { id: slot.id },
         data: { isBooked: true },
+      }),
+      prisma.studentProfile.update({
+        where: { id: studentProfile.id },
+        data: { guidanceUsed: { increment: 1 } },
       }),
     ]);
 

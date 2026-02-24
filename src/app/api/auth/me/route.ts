@@ -1,27 +1,45 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { requireAuth, authErrorStatus } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    const { userId, role } = await requireAuth(['STUDENT', 'INTERVIEWER', 'ADMIN']);
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name,
-        profilePicture: user.profilePicture,
-        provider: user.provider,
-        studentProfile: user.studentProfile,
-        interviewerProfile: user.interviewerProfile,
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        profilePicture: true,
+        provider: true,
       },
     });
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Fetch role-specific profile
+    let profile = null;
+    if (role === 'STUDENT') {
+      profile = await prisma.studentProfile.findUnique({
+        where: { userId },
+        select: { id: true, name: true },
+      });
+    } else if (role === 'INTERVIEWER') {
+      profile = await prisma.interviewerProfile.findUnique({
+        where: { userId },
+        select: { id: true, name: true },
+      });
+    }
+
+    return NextResponse.json({ user, profile, role });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: authErrorStatus(error.message) }
+    );
   }
 }

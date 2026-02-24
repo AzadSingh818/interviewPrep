@@ -4,8 +4,94 @@ import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { PaymentGate } from '@/components/shared/PaymentGate'; // ✅ ADDED
 import Link from 'next/link';
 import Image from 'next/image';
+
+// ✅ ADDED: Subscription status card component
+function SubscriptionCard({ profile, onUpgrade }: { profile: any; onUpgrade: () => void }) {
+  if (!profile) return null;
+
+  const isPro = profile.planType === 'PRO';
+  const expiryStr = profile.planExpiresAt
+    ? new Date(profile.planExpiresAt).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      })
+    : null;
+
+  const interviewPct = Math.min((profile.interviewsUsed / profile.interviewsLimit) * 100, 100);
+  const guidancePct = Math.min((profile.guidanceUsed / profile.guidanceLimit) * 100, 100);
+
+  return (
+    <Card variant="elevated" className={`p-6 mb-8 ${isPro ? 'border-indigo-300 bg-gradient-to-r from-indigo-50 to-violet-50' : 'border-slate-200'}`}>
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+              isPro ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {isPro ? '⭐ Pro Plan' : '🆓 Free Plan'}
+            </span>
+            {isPro && expiryStr && (
+              <span className="text-xs text-indigo-600">Expires {expiryStr}</span>
+            )}
+          </div>
+          <p className="text-sm text-slate-600">
+            {isPro
+              ? '10 interviews + 10 guidance sessions per month'
+              : '5 free interviews + 5 guidance sessions included'}
+          </p>
+        </div>
+        {!isPro && (
+          <button
+            onClick={onUpgrade}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity shadow"
+          >
+            Upgrade — ₹99/mo
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="flex justify-between text-xs text-slate-600 mb-1">
+            <span>Mock Interviews</span>
+            <span className="font-medium">{profile.interviewsUsed}/{profile.interviewsLimit}</span>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all ${
+                interviewPct >= 100 ? 'bg-red-500' : interviewPct >= 80 ? 'bg-amber-500' : 'bg-indigo-500'
+              }`}
+              style={{ width: `${interviewPct}%` }}
+            />
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-xs text-slate-600 mb-1">
+            <span>Guidance Sessions</span>
+            <span className="font-medium">{profile.guidanceUsed}/{profile.guidanceLimit}</span>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all ${
+                guidancePct >= 100 ? 'bg-red-500' : guidancePct >= 80 ? 'bg-amber-500' : 'bg-violet-500'
+              }`}
+              style={{ width: `${guidancePct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {(profile.interviewsUsed >= profile.interviewsLimit || profile.guidanceUsed >= profile.guidanceLimit) && (
+        <p className="text-xs text-red-600 mt-3 font-medium">
+          ⚠️ You've reached your limit.{' '}
+          {isPro ? 'Renew your plan to continue booking.' : 'Upgrade to Pro to book more sessions.'}
+        </p>
+      )}
+    </Card>
+  );
+}
 
 export default function StudentDashboardPage() {
   const [user, setUser] = useState<any>(null);
@@ -15,6 +101,7 @@ export default function StudentDashboardPage() {
   const [editing, setEditing] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [resumeError, setResumeError] = useState('');
+  const [showUpgrade, setShowUpgrade] = useState(false); // ✅ ADDED
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
@@ -146,6 +233,12 @@ export default function StudentDashboardPage() {
     }
   };
 
+  // ✅ ADDED: payment success handler
+  const handlePaymentSuccess = () => {
+    setShowUpgrade(false);
+    fetchData();
+  };
+
   const getResumeFileName = (url: string) => {
     return url.split('/').pop() || 'resume';
   };
@@ -161,6 +254,27 @@ export default function StudentDashboardPage() {
 
   const displayName = profile?.name || user?.name || user?.email?.split('@')[0] || 'Student';
   const userInitials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+
+  // ✅ ADDED: upgrade screen (replaces full page when student clicks "Upgrade")
+  if (showUpgrade && profile) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center gap-3 mb-8">
+          <button onClick={() => setShowUpgrade(false)} className="text-slate-500 hover:text-slate-700">
+            ← Back
+          </button>
+          <h1 className="text-2xl font-bold text-slate-900">Upgrade to Pro</h1>
+        </div>
+        <PaymentGate
+          planType={profile.planType}
+          used={Math.max(profile.interviewsUsed, profile.guidanceUsed)}
+          limit={Math.max(profile.interviewsLimit, profile.guidanceLimit)}
+          sessionType="interview" onPaymentSuccessAction={function (): void {
+            throw new Error('Function not implemented.');
+          } }        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -211,6 +325,11 @@ export default function StudentDashboardPage() {
           )}
         </div>
       </div>
+
+      {/* ✅ ADDED: Subscription status card — sits between header and Profile Section */}
+      {profile && (
+        <SubscriptionCard profile={profile} onUpgrade={() => setShowUpgrade(true)} />
+      )}
 
       {/* Profile Section */}
       <Card variant="elevated" className="p-8 mb-8">
@@ -416,6 +535,12 @@ export default function StudentDashboardPage() {
               <p className="text-sm text-slate-600">
                 Get mentorship from industry experts
               </p>
+              {/* ✅ ADDED: sessions remaining hint */}
+              {profile && (
+                <p className="text-xs text-indigo-600 mt-2 font-medium">
+                  {profile.guidanceLimit - profile.guidanceUsed} sessions remaining
+                </p>
+              )}
             </div>
           </Link>
           <Link href="/student/book-interview">
@@ -425,6 +550,12 @@ export default function StudentDashboardPage() {
               <p className="text-sm text-slate-600">
                 Practice with realistic interview scenarios
               </p>
+              {/* ✅ ADDED: interviews remaining hint */}
+              {profile && (
+                <p className="text-xs text-violet-600 mt-2 font-medium">
+                  {profile.interviewsLimit - profile.interviewsUsed} interviews remaining
+                </p>
+              )}
             </div>
           </Link>
         </div>
