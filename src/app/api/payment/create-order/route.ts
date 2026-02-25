@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import Razorpay from 'razorpay';
+export const dynamic = 'force-dynamic';
 
 const PLAN_AMOUNT_PAISE = 100; // ₹99 in paise
 
