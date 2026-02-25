@@ -3,15 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import Razorpay from 'razorpay';
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
 const PLAN_AMOUNT_PAISE = 100; // ₹99 in paise
 
 export async function POST() {
   try {
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+
     const { userId } = await requireAuth(['STUDENT']);
 
     const studentProfile = await prisma.studentProfile.findUnique({
