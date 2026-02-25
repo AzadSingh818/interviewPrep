@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-
+export const dynamic = 'force-dynamic';
 export default function VerifyEmailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
