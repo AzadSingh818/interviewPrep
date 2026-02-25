@@ -19,7 +19,6 @@ export async function POST() {
       where: { userId },
       select: { id: true, planType: true, planExpiresAt: true },
     });
-
     if (!studentProfile) {
       return NextResponse.json(
         { error: 'Please complete your profile first' },
