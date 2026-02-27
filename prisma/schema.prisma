@@ -16,9 +16,9 @@ model User {
   updatedAt               DateTime            @updatedAt @map("updated_at")
   provider                AuthProvider?       @default(EMAIL)
   googleId                String?             @unique @map("google_id") @db.VarChar(255)
+  emailVerified           Boolean?            @default(false) @map("email_verified")
   name                    String?             @db.VarChar(255)
   profilePicture          String?             @map("profile_picture")
-  emailVerified           Boolean?            @default(false) @map("email_verified")
   verificationToken       String?             @map("verification_token")
   verificationTokenExpiry DateTime?           @map("verification_token_expiry") @db.Timestamp(6)
   interviewerProfile      InterviewerProfile?
@@ -40,33 +40,27 @@ model StudentProfile {
   experienceLevel String?        @map("experience_level")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
+  guidanceLimit   Int            @default(5) @map("guidance_limit")
+  guidanceUsed    Int            @default(0) @map("guidance_used")
+  interviewsLimit Int            @default(5) @map("interviews_limit")
+  interviewsUsed  Int            @default(0) @map("interviews_used")
+  planExpiresAt   DateTime?      @map("plan_expires_at")
+  planType        PlanType       @default(FREE) @map("plan_type")
   resumeUrl       String?        @map("resume_url")
-
-  // ── Subscription / usage fields ───────────────────────────────────────────
-  planType           PlanType   @default(FREE)   @map("plan_type")
-  interviewsUsed     Int        @default(0)       @map("interviews_used")
-  guidanceUsed       Int        @default(0)       @map("guidance_used")
-  // Limits reset to 10 on every paid renewal; free users get 5 each permanently
-  interviewsLimit    Int        @default(5)       @map("interviews_limit")
-  guidanceLimit      Int        @default(5)       @map("guidance_limit")
-  // When the current paid period expires (null = free tier)
-  planExpiresAt      DateTime?                    @map("plan_expires_at")
-
   sessions        Session[]
-  subscriptions   Subscription[]
   user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptions   Subscription[]
 
   @@map("student_profiles")
 }
 
-// ── Keeps a full audit trail of every payment ─────────────────────────────────
 model Subscription {
   id                Int            @id @default(autoincrement())
   studentId         Int            @map("student_id")
   razorpayOrderId   String         @unique @map("razorpay_order_id")
   razorpayPaymentId String?        @unique @map("razorpay_payment_id")
   razorpaySignature String?        @map("razorpay_signature")
-  amount            Int            // in paise (9900 = ₹99)
+  amount            Int
   currency          String         @default("INR")
   status            PaymentStatus  @default(PENDING)
   planType          PlanType       @map("plan_type")
@@ -80,25 +74,25 @@ model Subscription {
 }
 
 model InterviewerProfile {
-  id                    Int               @id @default(autoincrement())
-  userId                Int               @unique @map("user_id")
+  id                    Int                @id @default(autoincrement())
+  userId                Int                @unique @map("user_id")
   name                  String
   education             String?
   companies             String[]
-  yearsOfExperience     Int?              @map("years_of_experience")
-  rolesSupported        String[]          @map("roles_supported")
-  difficultyLevels      DifficultyLevel[] @map("difficulty_levels")
-  sessionTypesOffered   SessionType[]     @map("session_types_offered")
-  interviewTypesOffered InterviewType[]   @default([]) @map("interview_types_offered")
-  linkedinUrl           String?           @map("linkedin_url")
-  status                InterviewerStatus @default(PENDING)
-  createdAt             DateTime          @default(now()) @map("created_at")
-  updatedAt             DateTime          @updatedAt @map("updated_at")
-  idCardUrl             String?           @map("id_card_url")
-  resumeUrl             String?           @map("resume_url")
+  yearsOfExperience     Int?               @map("years_of_experience")
+  rolesSupported        String[]           @map("roles_supported")
+  difficultyLevels      DifficultyLevel[]  @map("difficulty_levels")
+  sessionTypesOffered   SessionType[]      @map("session_types_offered")
+  linkedinUrl           String?            @map("linkedin_url")
+  status                InterviewerStatus  @default(PENDING)
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  idCardUrl             String?            @map("id_card_url")
+  interviewTypesOffered InterviewType[]    @default([]) @map("interview_types_offered")
+  resumeUrl             String?            @map("resume_url")
   availabilitySlots     AvailabilitySlot[]
   feedback              Feedback[]
-  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessions              Session[]
 
   @@map("interviewer_profiles")
@@ -173,8 +167,6 @@ model PendingUser {
   @@index([verificationToken], map: "idx_pending_users_verification_token")
   @@map("pending_users")
 }
-
-// ── Enums ─────────────────────────────────────────────────────────────────────
 
 enum UserRole {
   STUDENT

@@ -12,6 +12,16 @@ export async function GET() {
         sessionTypesOffered: { has: 'GUIDANCE' },
       },
       include: {
+        // ✅ Include user so profilePicture is available on the frontend
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            profilePicture: true,
+            provider: true,
+          },
+        },
         availabilitySlots: {
           where: {
             startTime: { gte: new Date() },
@@ -26,7 +36,7 @@ export async function GET() {
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { status: authErrorStatus(error.message) }
+      { status: authErrorStatus(error.message) },
     );
   }
 }
