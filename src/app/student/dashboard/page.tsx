@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -341,6 +341,21 @@ function ProfileCompletionBar({ profile }: { profile: Profile }) {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function StudentDashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-24">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Loading your dashboard…</p>
+        </div>
+      </div>
+    }>
+      <DashboardInner />
+    </Suspense>
+  );
+}
+
+function DashboardInner() {
   const [user, setUser]               = useState<any>(null);
   const [profile, setProfile]         = useState<Profile | null>(null);
   const [sessions, setSessions]       = useState<Session[]>([]);
@@ -691,8 +706,9 @@ export default function StudentDashboardPage() {
               )}
             </div>
           </Link>
+
           <div
-            className="p-3 bg-gradient-to-br from-slate-50 to-slate-50 border-2 border-slate-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group"
+            className="p-6 bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group"
             onClick={() => setShowUpgrade(true)}
           >
             <div className="text-3xl mb-3">⭐</div>
