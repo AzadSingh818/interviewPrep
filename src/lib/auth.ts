@@ -8,6 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-producti
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
 
 export interface JWTPayload {
+  id: any;
   userId: number;
   email: string;
   role: UserRole;

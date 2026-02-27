@@ -7,8 +7,14 @@
   --font-outfit: 'Outfit', sans-serif;
 }
 
+/* ── Light mode (default) ── */
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-slate-50 text-slate-900 transition-colors duration-200;
+}
+
+/* ── Dark mode overrides ── */
+.dark body {
+  @apply bg-gray-950 text-slate-100;
 }
 
 .font-sans {
@@ -19,20 +25,28 @@ body {
   font-family: var(--font-outfit);
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — light */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-
 ::-webkit-scrollbar-track {
   @apply bg-slate-100;
 }
-
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-300 rounded-full;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-slate-400;
+}
+
+/* Custom scrollbar — dark */
+.dark ::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-gray-600;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
 }

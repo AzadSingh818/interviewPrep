@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
@@ -37,19 +37,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Fetch student's name to build a friendly filename ──────────────────
+    const studentProfile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      select: { name: true },
+    });
+
+    // Fall back to the user's account name if profile name isn't set yet
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    });
+
+    const rawName =
+      studentProfile?.name ||
+      user?.name ||
+      user?.email?.split('@')[0] ||
+      `user_${userId}`;
+
+    // Convert "Azad Singh" → "Azad_Singh"  (replace spaces & special chars)
+    const safeName = rawName
+      .trim()
+      .replace(/[^a-zA-Z0-9\s]/g, '')   // remove special chars
+      .replace(/\s+/g, '_');             // spaces → underscores
+
+    const fileExtension = path.extname(file.name); // .pdf / .doc / .docx
+    const fileName = `${safeName}_resume${fileExtension}`; // e.g. Azad_Singh_resume.pdf
+
+    // ── Save file ──────────────────────────────────────────────────────────
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'resumes');
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
-    const timestamp = Date.now();
-    const fileExtension = path.extname(file.name);
-    const fileName = `resume_${userId}_${timestamp}${fileExtension}`;
-    const filePath = path.join(uploadsDir, fileName);
+    // Delete old resume file if it exists (avoid stale files piling up)
+    const existingProfile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      select: { resumeUrl: true },
+    });
+    if (existingProfile?.resumeUrl) {
+      const oldPath = path.join(process.cwd(), 'public', existingProfile.resumeUrl);
+      if (existsSync(oldPath)) {
+        await unlink(oldPath).catch(() => {}); // ignore errors if already gone
+      }
+    }
 
+    const filePath = path.join(uploadsDir, fileName);
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+    await writeFile(filePath, Buffer.from(bytes));
 
     const resumeUrl = `/uploads/resumes/${fileName}`;
 
@@ -88,8 +123,7 @@ export async function DELETE(request: NextRequest) {
 
     const filePath = path.join(process.cwd(), 'public', profile.resumeUrl);
     if (existsSync(filePath)) {
-      const fs = require('fs');
-      fs.unlinkSync(filePath);
+      await unlink(filePath).catch(() => {});
     }
 
     await prisma.studentProfile.update({
