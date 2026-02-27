@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch fresh user record with passwordHash
     const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
+      where: { id: user.userId },  // ✅ fixed: was user.id
       select: { passwordHash: true, provider: true },
     });
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     // Hash and save new password
     const newHash = await hashPassword(newPassword);
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: user.userId },  // ✅ fixed: was user.id
       data: { passwordHash: newHash },
     });
 
