@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
+      id: undefined
     });
 
     // Set cookie
