@@ -82,7 +82,7 @@ function ProfileHeader({
     try {
       const fd = new FormData();
       fd.append('photo', file);
-      const res = await fetch('/api/interviewer/upload-photo', { method: 'POST', body: fd });
+      const res = await fetch('/api/interviewer/upload-profile-picture', { method: 'POST', body: fd });
       const data = await res.json();
       if (res.ok) {
         setUploadMsg({ type: 'success', text: 'Photo uploaded!' });

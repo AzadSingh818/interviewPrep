@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
+import { sendBookingConfirmationToStudent, sendBookingNotificationToInterviewer } from '@/lib/email';
 
 /**
  * Minimum leftover minutes worth keeping as a new slot.
@@ -34,11 +35,17 @@ export async function POST(request: NextRequest) {
         select: {
           id: true, planType: true, guidanceUsed: true,
           guidanceLimit: true, planExpiresAt: true,
+          name: true, college: true, branch: true, targetRole: true,
+          user: { select: { email: true } },
         },
       }),
       prisma.interviewerProfile.findUnique({
         where: { id: parseInt(interviewerId) },
-        select: { id: true, status: true, sessionTypesOffered: true },
+        select: {
+          id: true, status: true, sessionTypesOffered: true,
+          name: true, companies: true, yearsOfExperience: true, linkedinUrl: true,
+          user: { select: { email: true } },
+        },
       }),
     ]);
 
@@ -93,10 +100,6 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Find the tightest-fitting available slot ──────────────────────────────
-    //
-    // The slot MUST fully contain the session window [sessionStart, sessionEnd].
-    // We sort by endTime ASC so the shortest qualifying slot is preferred —
-    // this minimises wasted time and fragmentation.
     const slot = await prisma.availabilitySlot.findFirst({
       where: {
         interviewerId: interviewer.id,
@@ -119,22 +122,9 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Slot splitting algorithm ──────────────────────────────────────────────
-    //
-    //  Before booking:
-    //  [================ original slot =================]
-    //  slot.startTime                            slot.endTime
-    //
-    //  After booking a 60-min session starting at sessionStart:
-    //  [= BEFORE =][======= 60-min session =======][= AFTER =]
-    //  slot.start  sessionStart             sessionEnd  slot.end
-    //
-    //  BEFORE and AFTER are re-created as FREE slots only when ≥ MIN_REMAINDER_MINUTES.
-    //  The original slot is marked isBooked = true (consumed / referenced by this booking).
-
     const beforeMins = (sessionStart.getTime() - slot.startTime.getTime()) / 60_000;
     const afterMins  = (slot.endTime.getTime()  - sessionEnd.getTime())    / 60_000;
 
-    // Build atomic transaction operations
     const ops: any[] = [
       // 1. Mark original slot as consumed
       prisma.availabilitySlot.update({
@@ -192,6 +182,32 @@ export async function POST(request: NextRequest) {
 
     const results = await prisma.$transaction(ops);
     const session = results[1]; // session is always index 1
+
+    // ── Send booking confirmation emails (non-blocking) ───────────────────────
+    const emailData = {
+      sessionType: 'GUIDANCE' as const,
+      scheduledTime: sessionStart,
+      durationMinutes: duration,
+      topic,
+
+      studentName:       studentProfile.name,
+      studentEmail:      studentProfile.user.email,
+      studentCollege:    studentProfile.college,
+      studentBranch:     studentProfile.branch,
+      studentTargetRole: studentProfile.targetRole,
+
+      interviewerName:             interviewer.name,
+      interviewerEmail:            interviewer.user.email,
+      interviewerCompanies:        interviewer.companies,
+      interviewerYearsOfExperience: interviewer.yearsOfExperience,
+      interviewerLinkedinUrl:      interviewer.linkedinUrl,
+    };
+
+    // Fire-and-forget — don't await so the API response is instant
+    Promise.all([
+      sendBookingConfirmationToStudent(emailData),
+      sendBookingNotificationToInterviewer(emailData),
+    ]).catch(err => console.error('Email sending failed (non-critical):', err));
 
     return NextResponse.json({
       session,
