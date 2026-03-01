@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { DifficultyLevel, InterviewType } from '@prisma/client';
+import { sendBookingConfirmationToStudent, sendBookingNotificationToInterviewer } from '@/lib/email';
 
 const MIN_REMAINDER_MINUTES = 30;
 
@@ -72,7 +73,6 @@ function scoreInterviewer(
   const workloadScore = Math.max(0, 30 - upcoming * 5);
 
   // ── Slot efficiency (20 pts) — pick best-fitting slot ───────────────────
-  // Sort slots by ascending waste so the tightest fit is first.
   const slotsByFit = [...interviewer.availabilitySlots].sort((a, b) => {
     const wasteA = (a.endTime.getTime() - a.startTime.getTime()) / 60_000 - sessionDurationMins;
     const wasteB = (b.endTime.getTime() - b.startTime.getTime()) / 60_000 - sessionDurationMins;
@@ -124,15 +124,11 @@ export async function POST(request: NextRequest) {
         select: {
           id: true, planType: true, interviewsUsed: true,
           interviewsLimit: true, planExpiresAt: true,
+          name: true, college: true, branch: true, targetRole: true,
+          user: { select: { email: true } },
         },
       }),
 
-      // Hard filters (Prisma WHERE):
-      //   • status APPROVED
-      //   • supports the chosen difficulty level
-      //   • offers INTERVIEW session type
-      //   • offers the chosen interview type (TECHNICAL | HR | MIXED)
-      //   • has at least one free slot that fully contains [sessionStart, sessionEnd]
       prisma.interviewerProfile.findMany({
         where: {
           status:                'APPROVED',
@@ -152,7 +148,8 @@ export async function POST(request: NextRequest) {
           name:                  true,
           rolesSupported:        true,
           yearsOfExperience:     true,
-          // Fetch ALL qualifying free slots so scoring can pick the tightest fit
+          companies:             true,
+          linkedinUrl:           true,
           availabilitySlots: {
             where: {
               isBooked:  false,
@@ -168,6 +165,7 @@ export async function POST(request: NextRequest) {
               },
             },
           },
+          user: { select: { email: true } },
         },
       }),
     ]);
@@ -229,8 +227,8 @@ export async function POST(request: NextRequest) {
       .map(c => scoreInterviewer(c, role, duration))
       .filter((s): s is ScoredInterviewer => s !== null)
       .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;       // highest score first
-        return a.upcomingSessions - b.upcomingSessions;           // tie-break: lighter load
+        if (b.score !== a.score) return b.score - a.score;
+        return a.upcomingSessions - b.upcomingSessions;
       });
 
     if (scored.length === 0) {
@@ -240,13 +238,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const winner = scored[0];
-    const slot   = winner.bestSlot;
+    const winner   = scored[0];
+    // Find full candidate record for email data (includes user.email, companies, etc.)
+    const winnerFull = candidates.find(c => c.id === winner.id)!;
+    const slot     = winner.bestSlot;
 
     // ── Slot splitting ────────────────────────────────────────────────────────
-    // Same algorithm as guidance: split the consumed slot into up to 3 pieces,
-    // keeping BEFORE and AFTER fragments if ≥ MIN_REMAINDER_MINUTES.
-
     const beforeMins = (sessionStart.getTime() - slot.startTime.getTime()) / 60_000;
     const afterMins  = (slot.endTime.getTime()  - sessionEnd.getTime())    / 60_000;
 
@@ -309,6 +306,34 @@ export async function POST(request: NextRequest) {
 
     const results = await prisma.$transaction(ops);
     const session = results[1];
+
+    // ── Send booking confirmation emails (non-blocking) ───────────────────────
+    const emailData = {
+      sessionType: 'INTERVIEW' as const,
+      scheduledTime: sessionStart,
+      durationMinutes: duration,
+      role,
+      difficulty,
+      interviewType,
+
+      studentName:       studentProfile.name,
+      studentEmail:      studentProfile.user.email,
+      studentCollege:    studentProfile.college,
+      studentBranch:     studentProfile.branch,
+      studentTargetRole: studentProfile.targetRole,
+
+      interviewerName:              winner.name,
+      interviewerEmail:             winnerFull.user.email,
+      interviewerCompanies:         winnerFull.companies,
+      interviewerYearsOfExperience: winner.yearsOfExperience,
+      interviewerLinkedinUrl:       winnerFull.linkedinUrl,
+    };
+
+    // Fire-and-forget — don't await so the API response is instant
+    Promise.all([
+      sendBookingConfirmationToStudent(emailData),
+      sendBookingNotificationToInterviewer(emailData),
+    ]).catch(err => console.error('Email sending failed (non-critical):', err));
 
     return NextResponse.json({
       session,

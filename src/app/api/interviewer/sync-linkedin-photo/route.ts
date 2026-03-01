@@ -23,10 +23,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'LinkedIn URL is required' }, { status: 400 });
     }
 
+    // Normalize URL — add https:// if missing
+    const normalizedUrl = linkedinUrl.startsWith('http')
+      ? linkedinUrl
+      : `https://${linkedinUrl}`;
+
     // Validate it's actually a LinkedIn URL
     const isLinkedIn =
-      linkedinUrl.includes('linkedin.com/in/') ||
-      linkedinUrl.includes('linkedin.com/pub/');
+      normalizedUrl.includes('linkedin.com/in/') ||
+      normalizedUrl.includes('linkedin.com/pub/');
 
     if (!isLinkedIn) {
       return NextResponse.json(
@@ -39,7 +44,7 @@ export async function POST(request: NextRequest) {
     let photoUrl: string | null = null;
 
     try {
-      const res = await fetch(linkedinUrl, {
+      const res = await fetch(normalizedUrl, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
