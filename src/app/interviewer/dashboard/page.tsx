@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+//import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -16,6 +16,7 @@ const INTERVIEW_TYPE_LABELS: Record<string, string> = {
 // ─── Helper ───────────────────────────────────────────────────────────────────
 function isGoogleDefaultPhoto(url: string | null | undefined): boolean {
   if (!url) return true;
+  if (url.startsWith('data:image/')) return false;  // ← add this line
   return url.includes('googleusercontent.com') || url.includes('ggpht.com');
 }
 
@@ -113,13 +114,7 @@ function ProfileHeader({
       {/* Avatar */}
       <div className="relative shrink-0">
         {photoReady ? (
-          <Image
-            src={user.profilePicture}
-            alt={displayName}
-            width={80}
-            height={80}
-            className="rounded-full object-cover border-4 border-white shadow-lg"
-          />
+          <img src={user.profilePicture} alt={displayName} className="rounded-full object-cover border-4 border-white shadow-lg w-20 h-20" />
         ) : (
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center border-4 border-white shadow-lg">
             <span className="text-white text-2xl font-bold">{userInitials}</span>

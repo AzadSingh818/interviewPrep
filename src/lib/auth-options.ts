@@ -18,6 +18,16 @@ function generateToken(payload: JWTPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
+/**
+ * Returns true if the URL is a Google account photo (or null = no photo yet).
+ * Google photos can be overwritten/updated on each login.
+ * Custom uploaded photos (base64 data URLs, /uploads/ paths, LinkedIn URLs) must NEVER be overwritten.
+ */
+function isGoogleAccountPhoto(url: string | null | undefined): boolean {
+  if (!url) return true; // no photo yet → use Google's
+  return url.includes('googleusercontent.com') || url.includes('ggpht.com');
+}
+
 export const authOptions: AuthOptions = {
   providers: [
     GoogleProvider({
@@ -33,56 +43,60 @@ export const authOptions: AuthOptions = {
         console.log('✅ [jwt] Google sign-in detected!');
 
         try {
-          const email = profile.email;
-          const googleId = account.providerAccountId;
-          const name = (profile as any).name || email.split('@')[0];
-          const profilePicture = (profile as any).picture || null;
+          const email            = profile.email;
+          const googleId         = account.providerAccountId;
+          const name             = (profile as any).name || email.split('@')[0];
+          const googleProfilePic = (profile as any).picture || null;
 
           // ✅ Read the role from the cookie set during redirect()
-          const cookieStore = await cookies();
-          const pendingRole = cookieStore.get('pending-oauth-role')?.value || 'STUDENT';
-
-          // Clear it immediately after reading
+          const cookieStore  = await cookies();
+          const pendingRole  = cookieStore.get('pending-oauth-role')?.value || 'STUDENT';
           cookieStore.delete('pending-oauth-role');
 
-          // Determine final role — admin email always wins
           let requestedRole = pendingRole;
-          if (isAdminEmail(email)) {
-            requestedRole = 'ADMIN';
-          }
+          if (isAdminEmail(email)) requestedRole = 'ADMIN';
 
           console.log('🎯 [jwt] Role from cookie:', requestedRole);
 
           // Find existing user
-          let user = await prisma.user.findUnique({
-            where: { email },
-          });
+          let user = await prisma.user.findUnique({ where: { email } });
 
           if (user) {
             console.log('✅ [jwt] Existing user found:', user.id, 'Role:', user.role);
 
-            // ✅ FIX: If user is logging in via a different role page (e.g., STUDENT
-            // logging in via /login/interviewer), update their role in the DB.
-            // Admin emails are never downgraded.
             const finalRole = isAdminEmail(email) ? 'ADMIN' : requestedRole;
+
+            // ─── PHOTO PROTECTION ─────────────────────────────────────────────
+            // If the user has uploaded a custom photo (any non-Google URL),
+            // NEVER overwrite it — even if they sign in with Google again.
+            // Only update the photo if they still have a Google-sourced photo
+            // or no photo at all.
+            const photoToSave = isGoogleAccountPhoto(user.profilePicture)
+              ? googleProfilePic    // null or Google URL in DB → use/refresh Google photo
+              : user.profilePicture; // custom upload in DB → preserve it always
+
+            console.log(
+              '📸 [jwt] Photo — DB has:',
+              user.profilePicture ? user.profilePicture.substring(0, 80) : 'null',
+              '| Saving:',
+              photoToSave ? photoToSave.substring(0, 80) : 'null',
+            );
+            // ──────────────────────────────────────────────────────────────────
 
             await prisma.user.update({
               where: { id: user.id },
               data: {
                 googleId,
-                provider: 'GOOGLE',
+                provider:      'GOOGLE',
                 name,
-                profilePicture,
-                emailVerified: true,
-                // ✅ Update role if it changed
-                role: finalRole as any,
+                profilePicture: photoToSave,
+                emailVerified:  true,
+                role:           finalRole as any,
               },
             });
 
-            // Refresh user object with updated role
             user = { ...user, role: finalRole as any };
-
-            console.log('✅ [jwt] User role set to:', finalRole);
+            console.log('✅ [jwt] User updated. Role:', finalRole);
 
           } else {
             console.log('✅ [jwt] Creating NEW user with role:', requestedRole);
@@ -92,35 +106,33 @@ export const authOptions: AuthOptions = {
                 email,
                 name,
                 googleId,
-                role: requestedRole as any,
-                provider: 'GOOGLE',
-                profilePicture,
-                emailVerified: true,
-                passwordHash: null,
+                role:          requestedRole as any,
+                provider:      'GOOGLE',
+                profilePicture: googleProfilePic,
+                emailVerified:  true,
+                passwordHash:   null,
               },
             });
 
             console.log('✅ [jwt] User created:', user.id, 'Role:', user.role);
           }
 
-          // Generate custom JWT with CORRECT role
           const customToken = generateToken({
             userId: user.id,
-            email: user.email,
-            role: user.role,
+            email:  user.email,
+            role:   user.role,
           });
 
           token.customToken = customToken;
-          token.userId = user.id;
-          token.userRole = user.role;
+          token.userId      = user.id;
+          token.userRole    = user.role;
 
-          // Set main auth cookie
           cookieStore.set('auth-token', customToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure:   process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 7,
-            path: '/',
+            maxAge:   60 * 60 * 24 * 7,
+            path:     '/',
           });
 
           console.log('✅ [jwt] Cookie set for user:', user.id, 'role:', user.role);
@@ -136,8 +148,8 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       if (token.customToken) {
         (session as any).customToken = token.customToken;
-        (session as any).userId = token.userId;
-        (session as any).userRole = token.userRole;
+        (session as any).userId      = token.userId;
+        (session as any).userRole    = token.userRole;
       }
       return session;
     },
@@ -151,8 +163,8 @@ export const authOptions: AuthOptions = {
         let requestedRole = 'STUDENT';
 
         try {
-          const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
-          const urlObj = new URL(fullUrl);
+          const fullUrl    = url.startsWith('http') ? url : `${baseUrl}${url}`;
+          const urlObj     = new URL(fullUrl);
           const callbackUrl = urlObj.searchParams.get('callbackUrl') || '';
 
           if (callbackUrl.includes('INTERVIEWER') || url.includes('INTERVIEWER')) {
@@ -163,14 +175,13 @@ export const authOptions: AuthOptions = {
 
           console.log('🎯 [redirect] Detected role:', requestedRole);
 
-          // ✅ Set role cookie BEFORE jwt() callback runs
           const cookieStore = await cookies();
           cookieStore.set('pending-oauth-role', requestedRole, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure:   process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: 60,
-            path: '/',
+            maxAge:   60,
+            path:     '/',
           });
 
           console.log('✅ [redirect] Role cookie set:', requestedRole);
@@ -179,13 +190,9 @@ export const authOptions: AuthOptions = {
           console.log('⚠️ [redirect] URL parse error:', err);
         }
 
-        if (requestedRole === 'INTERVIEWER') {
-          return `${baseUrl}/interviewer/dashboard`;
-        } else if (requestedRole === 'ADMIN') {
-          return `${baseUrl}/admin/dashboard`;
-        } else {
-          return `${baseUrl}/student/dashboard`;
-        }
+        if (requestedRole === 'INTERVIEWER') return `${baseUrl}/interviewer/dashboard`;
+        if (requestedRole === 'ADMIN')       return `${baseUrl}/admin/dashboard`;
+        return `${baseUrl}/student/dashboard`;
       }
 
       if (url.startsWith('/')) return `${baseUrl}${url}`;
@@ -201,10 +208,8 @@ export const authOptions: AuthOptions = {
   },
   pages: {
     signIn: '/login/student',
-    error: '/login/student',
+    error:  '/login/student',
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: 'jwt',
-  },
+  secret:  process.env.NEXTAUTH_SECRET,
+  session: { strategy: 'jwt' },
 };
