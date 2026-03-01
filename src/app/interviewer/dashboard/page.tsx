@@ -628,14 +628,14 @@ export default function InterviewerDashboardPage() {
 
       {/* Profile Card */}
       <Card variant="elevated" className="p-8 mb-6">
-        <div className="flex justify-between items-center mb-6">
+        {/* <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-display font-semibold text-slate-900">Your Profile</h2>
           {profile && !editing && (
             <Button onClick={() => setEditing(true)} variant="secondary" size="sm">
               Edit Profile
             </Button>
           )}
-        </div>
+        </div> */}
 
         {editing ? (
           // ── EDIT MODE ────────────────────────────────────────────────────────
