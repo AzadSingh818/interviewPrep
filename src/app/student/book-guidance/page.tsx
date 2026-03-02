@@ -16,6 +16,49 @@ function resolvePhoto(url: string | null | undefined): string | null {
   return url;
 }
 
+// ─── Star display (readonly) ──────────────────────────────────────────────────
+function StarDisplay({ rating, totalRatings }: { rating: number | null; totalRatings: number }) {
+  if (!rating || totalRatings === 0) {
+    return (
+      <div className="flex items-center gap-1.5 mt-1.5">
+        <div className="flex gap-0.5">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <span key={star} className="text-sm text-slate-300">★</span>
+          ))}
+        </div>
+        <span className="text-xs text-slate-400">No ratings yet</span>
+      </div>
+    );
+  }
+  const fullStars  = Math.floor(rating);
+  const halfStar   = rating - fullStars >= 0.5;
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5">
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            className={`text-sm ${
+              star <= fullStars
+                ? 'text-amber-400'
+                : star === fullStars + 1 && halfStar
+                ? 'text-amber-300'
+                : 'text-slate-300'
+            }`}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+      <span className="text-xs font-semibold text-amber-600">{rating.toFixed(1)}</span>
+      <span className="text-xs text-slate-400">
+        ({totalRatings} {totalRatings === 1 ? 'rating' : 'ratings'})
+      </span>
+    </div>
+  );
+}
+
 // ─── Interviewer Avatar ───────────────────────────────────────────────────────
 function InterviewerAvatar({
   interviewer,
@@ -64,7 +107,6 @@ export default function BookGuidancePage() {
   const [loading, setLoading]     = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]         = useState('');
-  // Mobile: show booking form panel after mentor selected
   const [showMobileForm, setShowMobileForm] = useState(false);
 
   const [plan, setPlan] = useState<{
@@ -171,7 +213,6 @@ export default function BookGuidancePage() {
     );
   }
 
-  // ── Payment wall ───────────────────────────────────────────────────────────
   if (limitReached && plan) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-0">
@@ -190,12 +231,10 @@ export default function BookGuidancePage() {
     );
   }
 
-  // ── Booking form (shared between mobile and desktop) ───────────────────────
   const BookingForm = () => (
     <Card variant="elevated" className="p-4 sm:p-6 lg:sticky lg:top-8">
       <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4">Session Details</h2>
 
-      {/* Selected mentor preview */}
       {selectedInterviewer && (
         <div className="flex items-center gap-3 mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
           <InterviewerAvatar interviewer={selectedInterviewer} size={40} />
@@ -206,6 +245,12 @@ export default function BookGuidancePage() {
             <p className="text-xs text-indigo-600 truncate">
               {selectedInterviewer.companies?.join(', ')}
             </p>
+            {selectedInterviewer.averageRating && selectedInterviewer.totalRatings > 0 && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-xs text-amber-500">★ {selectedInterviewer.averageRating.toFixed(1)}</span>
+                <span className="text-xs text-slate-400">({selectedInterviewer.totalRatings} ratings)</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -289,7 +334,6 @@ export default function BookGuidancePage() {
       </h1>
       <p className="text-slate-600 mb-4 sm:mb-6 text-sm sm:text-base">Get mentorship from industry experts.</p>
 
-      {/* Usage banner */}
       {plan && (
         <UsageBanner
           planType={plan.planType}
@@ -300,7 +344,6 @@ export default function BookGuidancePage() {
         />
       )}
 
-      {/* ── Mobile: show form panel when mentor selected ── */}
       {showMobileForm && selectedInterviewer ? (
         <div className="lg:hidden">
           <button
@@ -316,9 +359,7 @@ export default function BookGuidancePage() {
         </div>
       ) : (
         <>
-          {/* ── Desktop: two-column grid ── */}
           <div className="hidden lg:grid lg:grid-cols-3 lg:gap-8">
-            {/* Mentors list — 2/3 */}
             <div className="col-span-2">
               <h2 className="text-xl font-semibold text-slate-900 mb-4">Select a Mentor</h2>
               <MentorList
@@ -328,14 +369,11 @@ export default function BookGuidancePage() {
                 mobile={false}
               />
             </div>
-
-            {/* Booking form — 1/3 */}
             <div>
               <BookingForm />
             </div>
           </div>
 
-          {/* ── Mobile: full-width mentor list ── */}
           <div className="lg:hidden">
             <h2 className="text-lg font-semibold text-slate-900 mb-3">Select a Mentor</h2>
             <MentorList
@@ -414,12 +452,18 @@ function MentorList({
                   </p>
                 )}
 
-                <p className="text-xs sm:text-sm text-slate-600 mb-2">
+                <p className="text-xs sm:text-sm text-slate-600 mb-1">
                   <span className="font-medium">Specializes in:</span>{' '}
                   <span className="break-words">{interviewer.rolesSupported?.join(', ')}</span>
                 </p>
 
-                <div className="flex flex-wrap items-center gap-2">
+                {/* ── Star Rating ── */}
+                <StarDisplay
+                  rating={interviewer.averageRating}
+                  totalRatings={interviewer.totalRatings ?? 0}
+                />
+
+                <div className="flex flex-wrap items-center gap-2 mt-2">
                   {interviewer.availabilitySlots?.length > 0 ? (
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
@@ -447,7 +491,6 @@ function MentorList({
                   )}
                 </div>
 
-                {/* Mobile CTA */}
                 {mobile && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onSelect(interviewer); }}
