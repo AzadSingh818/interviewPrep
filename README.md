@@ -275,47 +275,141 @@ npm run prisma:studio    # Open Prisma Studio
 
 ---
 
-## 📁 Project Structure
+## 📂 Complete Folder Structure
 
 ```
 interviewprep-live/
 ├── prisma/
-│   └── schema.prisma              # Prisma schema
+│   └── schema.prisma
 ├── src/
-│   ├── app/                       # Next.js App Router
-│   │   ├── layout.tsx            # Root layout
-│   │   ├── page.tsx              # Landing page
-│   │   ├── globals.css           # Global styles
-│   │   ├── api/                  # API routes (14 endpoints)
-│   │   ├── login/                # Login pages
-│   │   ├── signup/               # Signup pages
-│   │   ├── student/              # Student dashboard & pages
-│   │   ├── interviewer/          # Interviewer dashboard & pages
-│   │   └── admin/                # Admin dashboard & pages
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── auth/
+│   │   │   │   ├── signup/
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── login/
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── me/
+│   │   │   │       └── route.ts
+│   │   │   ├── student/
+│   │   │   │   ├── profile/
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── sessions/
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── book/
+│   │   │   │       ├── guidance/
+│   │   │   │       │   └── route.ts
+│   │   │   │       └── interview/
+│   │   │   │           └── route.ts
+│   │   │   ├── interviewer/
+│   │   │   │   ├── profile/
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── availability/
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── sessions/
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── list/
+│   │   │   │       └── route.ts
+│   │   │   ├── admin/
+│   │   │   │   ├── interviewers/
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── analytics/
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── assign/
+│   │   │   │       └── route.ts
+│   │   │   └── feedback/
+│   │   │       └── route.ts
+│   │   ├── login/
+│   │   │   ├── student/
+│   │   │   │   └── page.tsx
+│   │   │   └── interviewer/
+│   │   │       └── page.tsx
+│   │   ├── signup/
+│   │   │   ├── student/
+│   │   │   │   └── page.tsx
+│   │   │   └── interviewer/
+│   │   │       └── page.tsx
+│   │   ├── student/
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx
+│   │   │   ├── book-guidance/
+│   │   │   │   └── page.tsx
+│   │   │   ├── book-interview/
+│   │   │   │   └── page.tsx
+│   │   │   ├── sessions/
+│   │   │   │   └── page.tsx
+│   │   │   └── feedback/
+│   │   │       └── [sessionId]/
+│   │   │           └── page.tsx
+│   │   ├── interviewer/
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx
+│   │   │   ├── availability/
+│   │   │   │   └── page.tsx
+│   │   │   ├── sessions/
+│   │   │   │   └── page.tsx
+│   │   │   └── feedback/
+│   │   │       └── [sessionId]/
+│   │   │           └── page.tsx
+│   │   ├── admin/
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx
+│   │   │   ├── interviewers/
+│   │   │   │   └── page.tsx
+│   │   │   ├── analytics/
+│   │   │   │   └── page.tsx
+│   │   │   └── config/
+│   │   │       └── page.tsx
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   └── globals.css
 │   ├── components/
-│   │   ├── ui/                   # Reusable UI components
-│   │   ├── layout/               # Layout components
-│   │   └── shared/               # Shared components
+│   │   ├── ui/
+│   │   │   ├── Button.tsx
+│   │   │   ├── Card.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   ├── Input.tsx
+│   │   │   ├── Select.tsx
+│   │   │   └── Badge.tsx
+│   │   ├── layout/
+│   │   │   ├── Navbar.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── Footer.tsx
+│   │   └── shared/
+│   │       ├── ProtectedRoute.tsx
+│   │       ├── LoadingSpinner.tsx
+│   │       └── ErrorBoundary.tsx
 │   ├── lib/
-│   │   ├── prisma.ts            # Prisma client
-│   │   ├── auth.ts              # Authentication utilities
-│   │   └── utils.ts             # Helper functions
+│   │   ├── prisma.ts
+│   │   ├── auth.ts
+│   │   ├── utils.ts
+│   │   └── constants.ts
 │   ├── types/
-│   │   └── index.ts             # TypeScript types
-│   └── middleware.ts             # Route protection
-├── public/                        # Static assets
-├── .env                          # Environment variables
-├── package.json                  # Dependencies
-├── tsconfig.json                 # TypeScript config
-├── tailwind.config.ts            # Tailwind config
-└── next.config.js                # Next.js config
+│   │   └── index.ts
+│   └── middleware.ts
+├── public/
+│   └── assets/
+├── .env
+├── .env.example
+├── .gitignore
+├── package.json
+├── package-lock.json
+├── tsconfig.json
+├── tailwind.config.ts
+├── next.config.js
+├── schema.sql
+└── README.md
 ```
 
-**Total Files:** 53 source files
-**Lines of Code:** 8,000+
+**Total Structure:**
+- **29 API Routes** (Backend endpoints)
+- **24 Page Components** (Frontend pages)
+- **6 UI Components** (Reusable components)
+- **3 Layout Components** (Navigation & structure)
+- **6 Core Utilities** (Auth, Prisma, helpers)
+- **3 Type Definition Files**
 
 ---
-
 ## 👥 User Roles
 
 ### 🎓 Student

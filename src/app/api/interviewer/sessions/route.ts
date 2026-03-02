@@ -14,7 +14,19 @@ export async function GET() {
         sessions: {
           orderBy: { scheduledTime: 'desc' },
           include: {
-            student: true,
+            student: {
+              select: {
+                id: true,
+                name: true,
+                college: true,
+                branch: true,
+                graduationYear: true,
+                targetRole: true,
+                experienceLevel: true,
+                resumeUrl: true,  // ← this is the key field
+                user: { select: { email: true } },
+              },
+            },
             feedback: true,
           },
         },
