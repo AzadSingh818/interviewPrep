@@ -90,6 +90,8 @@ model InterviewerProfile {
   idCardUrl             String?            @map("id_card_url")
   interviewTypesOffered InterviewType[]    @default([]) @map("interview_types_offered")
   resumeUrl             String?            @map("resume_url")
+  averageRating         Float?             @map("average_rating")
+  totalRatings          Int                @default(0) @map("total_ratings")
   availabilitySlots     AvailabilitySlot[]
   feedback              Feedback[]
   user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -145,6 +147,8 @@ model Feedback {
   confidence           Int?
   overallComments      String?               @map("overall_comments")
   hiringRecommendation HiringRecommendation? @map("hiring_recommendation")
+  studentRating        Int?                  @map("student_rating")
+  studentRatingComment String?               @map("student_rating_comment")
   createdAt            DateTime              @default(now()) @map("created_at")
   interviewer          InterviewerProfile    @relation(fields: [interviewerId], references: [id], onDelete: Cascade)
   session              Session               @relation(fields: [sessionId], references: [id], onDelete: Cascade)

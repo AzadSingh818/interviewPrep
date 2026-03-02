@@ -4,6 +4,38 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
+// ─── Star display ─────────────────────────────────────────────────────────────
+function StarDisplay({ rating, totalRatings }: { rating: number | null; totalRatings: number }) {
+  if (!rating || totalRatings === 0) {
+    return <span className="text-xs text-slate-400">No ratings yet</span>;
+  }
+  const fullStars = Math.floor(rating);
+  const halfStar  = rating - fullStars >= 0.5;
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            className={`text-sm ${
+              star <= fullStars
+                ? 'text-amber-400'
+                : star === fullStars + 1 && halfStar
+                ? 'text-amber-300'
+                : 'text-slate-300'
+            }`}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+      <span className="text-xs font-semibold text-amber-600">{rating.toFixed(1)}</span>
+      <span className="text-xs text-slate-400">({totalRatings} {totalRatings === 1 ? 'rating' : 'ratings'})</span>
+    </div>
+  );
+}
+
 export default function AdminInterviewersPage() {
   const [interviewers, setInterviewers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +70,7 @@ export default function AdminInterviewersPage() {
     }
   };
 
-  const pendingInterviewers = interviewers.filter(i => i.status === 'PENDING');
+  const pendingInterviewers  = interviewers.filter(i => i.status === 'PENDING');
   const approvedInterviewers = interviewers.filter(i => i.status === 'APPROVED');
   const rejectedInterviewers = interviewers.filter(i => i.status === 'REJECTED');
 
@@ -48,7 +80,7 @@ export default function AdminInterviewersPage() {
     <div className="max-w-6xl mx-auto">
       <h1 className="text-3xl font-display font-bold text-slate-900 mb-8">Manage Interviewers</h1>
 
-      {/* ── PENDING ───────────────────────────────────────────────────────────── */}
+      {/* ── PENDING ── */}
       {pendingInterviewers.length > 0 && (
         <section className="mb-12">
           <div className="flex items-center gap-3 mb-4">
@@ -73,7 +105,7 @@ export default function AdminInterviewersPage() {
         </section>
       )}
 
-      {/* ── APPROVED ──────────────────────────────────────────────────────────── */}
+      {/* ── APPROVED ── */}
       <section className="mb-12">
         <h2 className="text-2xl font-semibold text-slate-900 mb-4">
           Approved Interviewers ({approvedInterviewers.length})
@@ -97,7 +129,7 @@ export default function AdminInterviewersPage() {
         )}
       </section>
 
-      {/* ── REJECTED ──────────────────────────────────────────────────────────── */}
+      {/* ── REJECTED ── */}
       {rejectedInterviewers.length > 0 && (
         <section>
           <h2 className="text-2xl font-semibold text-slate-900 mb-4">
@@ -125,28 +157,26 @@ export default function AdminInterviewersPage() {
 // ─── Interviewer Card ─────────────────────────────────────────────────────────
 function InterviewerCard({ interviewer: iv, expanded, onToggle, onApprove, onReject, showActions, isApproved, isRejected }: any) {
   const hasDocuments = iv.resumeUrl || iv.idCardUrl;
-  const missingDocs = !iv.resumeUrl || !iv.idCardUrl;
+  const missingDocs  = !iv.resumeUrl || !iv.idCardUrl;
 
   return (
     <Card variant="bordered" className="overflow-hidden">
-      {/* Header row */}
       <div className="p-6">
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-1">
               <h3 className="text-lg font-semibold text-slate-900">{iv.name}</h3>
-              {isApproved && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">✓ Active</span>}
-              {isRejected && <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">✗ Rejected</span>}
+              {isApproved  && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">✓ Active</span>}
+              {isRejected  && <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">✗ Rejected</span>}
               {!isApproved && !isRejected && missingDocs && (
                 <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">⚠ Docs incomplete</span>
               )}
             </div>
 
-            {/* Key info always visible */}
             <div className="flex flex-wrap gap-x-6 gap-y-1 mt-2">
               <span className="text-sm text-slate-600">📧 {iv.user.email}</span>
-              {iv.companies?.length > 0 && <span className="text-sm text-slate-600">🏢 {iv.companies.join(', ')}</span>}
-              {iv.yearsOfExperience && <span className="text-sm text-slate-600">💼 {iv.yearsOfExperience} yrs exp</span>}
+              {iv.companies?.length > 0    && <span className="text-sm text-slate-600">🏢 {iv.companies.join(', ')}</span>}
+              {iv.yearsOfExperience         && <span className="text-sm text-slate-600">💼 {iv.yearsOfExperience} yrs exp</span>}
               {iv.linkedinUrl ? (
                 <a href={iv.linkedinUrl} target="_blank" rel="noopener noreferrer"
                   className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
@@ -160,9 +190,14 @@ function InterviewerCard({ interviewer: iv, expanded, onToggle, onApprove, onRej
                 <span className="text-sm text-slate-400">🔗 No LinkedIn</span>
               )}
             </div>
+
+            {/* ── Rating row ── */}
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-sm text-slate-500">Student Rating:</span>
+              <StarDisplay rating={iv.averageRating ?? null} totalRatings={iv.totalRatings ?? 0} />
+            </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex items-center gap-2 ml-4">
             <button
               onClick={onToggle}
@@ -176,17 +211,12 @@ function InterviewerCard({ interviewer: iv, expanded, onToggle, onApprove, onRej
                 <Button onClick={onReject} variant="danger" size="sm">Reject</Button>
               </>
             )}
-            {isApproved && (
-              <Button onClick={onReject} variant="danger" size="sm">Revoke</Button>
-            )}
-            {isRejected && (
-              <Button onClick={onApprove} size="sm">Re-approve</Button>
-            )}
+            {isApproved  && <Button onClick={onReject}  variant="danger" size="sm">Revoke</Button>}
+            {isRejected  && <Button onClick={onApprove} size="sm">Re-approve</Button>}
           </div>
         </div>
       </div>
 
-      {/* Expanded details */}
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50 p-6">
           <div className="grid grid-cols-3 gap-6 mb-6">
@@ -199,7 +229,7 @@ function InterviewerCard({ interviewer: iv, expanded, onToggle, onApprove, onRej
               <div className="flex gap-1 flex-wrap">
                 {iv.difficultyLevels?.map((d: string) => (
                   <span key={d} className={`px-2 py-0.5 rounded text-xs font-medium ${
-                    d === 'HARD' ? 'bg-red-100 text-red-700' :
+                    d === 'HARD'   ? 'bg-red-100 text-red-700' :
                     d === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
                     'bg-green-100 text-green-700'
                   }`}>{d}</span>
@@ -216,13 +246,16 @@ function InterviewerCard({ interviewer: iv, expanded, onToggle, onApprove, onRej
                 <p className="text-sm text-slate-700">{iv.education}</p>
               </div>
             )}
+            {/* Rating detail in expanded view */}
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Student Rating</p>
+              <StarDisplay rating={iv.averageRating ?? null} totalRatings={iv.totalRatings ?? 0} />
+            </div>
           </div>
 
-          {/* Verification Documents */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Verification Documents</p>
             <div className="grid grid-cols-2 gap-4">
-              {/* Resume */}
               <div className={`rounded-xl border-2 p-4 ${iv.resumeUrl ? 'border-green-200 bg-green-50' : 'border-dashed border-slate-300 bg-white'}`}>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">📄</span>
@@ -241,7 +274,6 @@ function InterviewerCard({ interviewer: iv, expanded, onToggle, onApprove, onRej
                 </div>
               </div>
 
-              {/* ID Card */}
               <div className={`rounded-xl border-2 p-4 ${iv.idCardUrl ? 'border-green-200 bg-green-50' : 'border-dashed border-slate-300 bg-white'}`}>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">🪪</span>
