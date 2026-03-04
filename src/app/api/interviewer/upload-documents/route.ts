@@ -1,48 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, authErrorStatus } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { v2 as cloudinary } from "cloudinary";
 
-// ── Cloudinary config ─────────────────────────────────────────────────────────
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-// ── Helper: upload buffer to Cloudinary using base64 (Vercel-safe) ────────────
-async function uploadBufferToCloudinary(
+// ── Cloudinary upload via REST API (no SDK, no streams) ───────────────────────
+async function uploadToCloudinary(
   buffer: Buffer,
-  publicId: string,
+  filename: string,
+  folder: string,
   resourceType: 'raw' | 'image' = 'raw',
 ): Promise<string> {
-  const base64 = buffer.toString('base64');
-  const mimePrefix = resourceType === 'image' ? 'image/jpeg' : 'application/octet-stream';
-  const dataUri = `data:${mimePrefix};base64,${base64}`;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME!;
+  const apiKey    = process.env.CLOUDINARY_API_KEY!;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET!;
+  const timestamp = Math.floor(Date.now() / 1000);
 
-  const result = await cloudinary.uploader.upload(dataUri, {
-    resource_type: resourceType,
-    public_id:     publicId,
-    overwrite:     true,
-  });
+  const paramsToSign = `folder=${folder}&overwrite=true&public_id=${filename}&timestamp=${timestamp}`;
+  const crypto = await import('crypto');
+  const signature = crypto
+    .createHash('sha256')
+    .update(paramsToSign + apiSecret)
+    .digest('hex');
 
-  return result.secure_url;
+  const formData = new FormData();
+  const blob = new Blob([new Uint8Array(buffer)], { type: 'application/octet-stream' });
+  formData.append('file',      blob, filename);
+  formData.append('public_id', filename);
+  formData.append('folder',    folder);
+  formData.append('overwrite', 'true');
+  formData.append('timestamp', String(timestamp));
+  formData.append('api_key',   apiKey);
+  formData.append('signature', signature);
+
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
+  const res = await fetch(url, { method: 'POST', body: formData });
+  const data = await res.json();
+
+  if (!res.ok) {
+    console.error('Cloudinary error:', data);
+    throw new Error(data?.error?.message || 'Cloudinary upload failed');
+  }
+
+  return data.secure_url as string;
 }
 
-// ── Helper: delete from Cloudinary safely ────────────────────────────────────
-async function deleteFromCloudinary(url: string, resourceType: 'raw' | 'image' = 'raw') {
+// ── Delete from Cloudinary via REST API ──────────────────────────────────────
+async function deleteFromCloudinary(
+  url: string,
+  resourceType: 'raw' | 'image' = 'raw',
+): Promise<void> {
   try {
-    const publicId = url
-      .split('/upload/')[1]
-      ?.replace(/^v\d+\//, '')
-      ?.replace(/\.[^/.]+$/, '');
-    if (publicId) {
-      await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
-    }
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME!;
+    const apiKey    = process.env.CLOUDINARY_API_KEY!;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET!;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const afterUpload = url.split('/upload/')[1];
+    if (!afterUpload) return;
+    const publicId = afterUpload.replace(/^v\d+\//, '').replace(/\.[^/.]+$/, '');
+
+    const crypto = await import('crypto');
+    const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}`;
+    const signature = crypto
+      .createHash('sha256')
+      .update(paramsToSign + apiSecret)
+      .digest('hex');
+
+    const formData = new FormData();
+    formData.append('public_id',     publicId);
+    formData.append('timestamp',     String(timestamp));
+    formData.append('api_key',       apiKey);
+    formData.append('signature',     signature);
+    formData.append('resource_type', resourceType);
+
+    await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`,
+      { method: 'POST', body: formData },
+    );
   } catch (e) {
     console.warn('Could not delete old file from Cloudinary:', e);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -68,9 +107,9 @@ export async function POST(request: NextRequest) {
 
     const updateData: any = {};
 
-    // ── Fetch existing URLs to delete old files ───────────────────────────
+    // Fetch existing URLs to delete old files
     const existing = await prisma.interviewerProfile.findUnique({
-      where: { userId },
+      where:  { userId },
       select: { resumeUrl: true, idCardUrl: true },
     });
 
@@ -89,17 +128,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Delete old resume from Cloudinary
       if (existing?.resumeUrl?.includes('cloudinary.com')) {
         await deleteFromCloudinary(existing.resumeUrl, 'raw');
       }
 
-      const buffer = Buffer.from(await resumeFile.arrayBuffer());
-      updateData.resumeUrl = await uploadBufferToCloudinary(
-        buffer,
-        `interviewer-docs/resume_${userId}_${Date.now()}`,
-        'raw',
-      );
+      const buffer  = Buffer.from(await resumeFile.arrayBuffer());
+      const filename = `resume_${userId}_${Date.now()}`; // no slashes
+      updateData.resumeUrl = await uploadToCloudinary(buffer, filename, 'interviewer-docs', 'raw');
     }
 
     // ── Handle ID card upload ─────────────────────────────────────────────
@@ -117,32 +152,30 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(idCardFile.type);
+      const isImage   = ['image/jpeg', 'image/png', 'image/webp'].includes(idCardFile.type);
+      const resType   = isImage ? 'image' : 'raw';
 
-      // Delete old ID card from Cloudinary
       if (existing?.idCardUrl?.includes('cloudinary.com')) {
-        await deleteFromCloudinary(existing.idCardUrl, isImage ? 'image' : 'raw');
+        await deleteFromCloudinary(existing.idCardUrl, resType);
       }
 
-      const buffer = Buffer.from(await idCardFile.arrayBuffer());
-      updateData.idCardUrl = await uploadBufferToCloudinary(
-        buffer,
-        `interviewer-docs/idcard_${userId}_${Date.now()}`,
-        isImage ? 'image' : 'raw',
-      );
+      const buffer   = Buffer.from(await idCardFile.arrayBuffer());
+      const filename  = `idcard_${userId}_${Date.now()}`; // no slashes
+      updateData.idCardUrl = await uploadToCloudinary(buffer, filename, 'interviewer-docs', resType);
     }
 
     // ── Update interviewer profile ────────────────────────────────────────
     const profile = await prisma.interviewerProfile.update({
       where: { userId },
-      data: updateData,
+      data:  updateData,
     });
 
     return NextResponse.json({
-      success: true,
+      success:   true,
       resumeUrl: (profile as any).resumeUrl,
       idCardUrl: (profile as any).idCardUrl,
     });
+
   } catch (error: any) {
     console.error("Document upload error:", error);
     return NextResponse.json(
