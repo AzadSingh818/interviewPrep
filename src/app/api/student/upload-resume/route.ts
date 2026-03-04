@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import { existsSync } from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
+
+// ── Cloudinary config ─────────────────────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,10 +46,9 @@ export async function POST(request: NextRequest) {
     // ── Fetch student's name to build a friendly filename ──────────────────
     const studentProfile = await prisma.studentProfile.findUnique({
       where: { userId },
-      select: { name: true },
+      select: { name: true, resumeUrl: true },
     });
 
-    // Fall back to the user's account name if profile name isn't set yet
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { name: true, email: true },
@@ -55,38 +60,51 @@ export async function POST(request: NextRequest) {
       user?.email?.split('@')[0] ||
       `user_${userId}`;
 
-    // Convert "Azad Singh" → "Azad_Singh"  (replace spaces & special chars)
     const safeName = rawName
       .trim()
-      .replace(/[^a-zA-Z0-9\s]/g, '')   // remove special chars
-      .replace(/\s+/g, '_');             // spaces → underscores
+      .replace(/[^a-zA-Z0-9\s]/g, '')
+      .replace(/\s+/g, '_');
 
     const fileExtension = path.extname(file.name); // .pdf / .doc / .docx
-    const fileName = `${safeName}_resume${fileExtension}`; // e.g. Azad_Singh_resume.pdf
+    const publicId = `resumes/${safeName}_resume_${userId}`;
 
-    // ── Save file ──────────────────────────────────────────────────────────
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'resumes');
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
-    // Delete old resume file if it exists (avoid stale files piling up)
-    const existingProfile = await prisma.studentProfile.findUnique({
-      where: { userId },
-      select: { resumeUrl: true },
-    });
-    if (existingProfile?.resumeUrl) {
-      const oldPath = path.join(process.cwd(), 'public', existingProfile.resumeUrl);
-      if (existsSync(oldPath)) {
-        await unlink(oldPath).catch(() => {}); // ignore errors if already gone
+    // ── Delete old Cloudinary file if exists ──────────────────────────────
+    if (studentProfile?.resumeUrl) {
+      try {
+        // Extract public_id from old URL
+        const oldPublicId = studentProfile.resumeUrl
+          .split('/upload/')[1]
+          ?.replace(/^v\d+\//, '')   // strip version
+          ?.replace(/\.[^/.]+$/, ''); // strip extension
+        if (oldPublicId) {
+          await cloudinary.uploader.destroy(oldPublicId, { resource_type: 'raw' });
+        }
+      } catch (e) {
+        console.warn('Could not delete old resume from Cloudinary:', e);
       }
     }
 
-    const filePath = path.join(uploadsDir, fileName);
+    // ── Upload to Cloudinary ───────────────────────────────────────────────
     const bytes = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(bytes));
+    const buffer = Buffer.from(bytes);
 
-    const resumeUrl = `/uploads/resumes/${fileName}`;
+    const uploadResult = await new Promise<any>((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'raw',          // PDFs/docs must use 'raw'
+          public_id: publicId,
+          overwrite: true,
+          folder: 'student-resumes',
+          format: fileExtension.replace('.', ''),
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(buffer);
+    });
+
+    const resumeUrl = uploadResult.secure_url;
 
     await prisma.studentProfile.update({
       where: { userId },
@@ -121,9 +139,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No resume found' }, { status: 404 });
     }
 
-    const filePath = path.join(process.cwd(), 'public', profile.resumeUrl);
-    if (existsSync(filePath)) {
-      await unlink(filePath).catch(() => {});
+    // ── Delete from Cloudinary ─────────────────────────────────────────────
+    try {
+      const oldPublicId = profile.resumeUrl
+        .split('/upload/')[1]
+        ?.replace(/^v\d+\//, '')
+        ?.replace(/\.[^/.]+$/, '');
+      if (oldPublicId) {
+        await cloudinary.uploader.destroy(oldPublicId, { resource_type: 'raw' });
+      }
+    } catch (e) {
+      console.warn('Could not delete resume from Cloudinary:', e);
     }
 
     await prisma.studentProfile.update({

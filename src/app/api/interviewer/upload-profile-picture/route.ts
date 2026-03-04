@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { v2 as cloudinary } from 'cloudinary';
+
+// ── Cloudinary config ─────────────────────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 /**
  * POST /api/interviewer/upload-profile-picture
  *
- * Stores the photo as a base64 data URL directly in the database.
+ * Uploads the photo to Cloudinary and stores the URL in the database.
  *
- * WHY base64 instead of filesystem?
- * Storing files in `public/uploads/` fails in production environments
- * (Vercel, Railway, Fly.io, etc.) because the filesystem is ephemeral —
- * files are wiped on every deploy or server restart. Base64 in the DB
- * is permanent and works everywhere without any cloud storage setup.
+ * Previously stored as base64 in DB — now uses Cloudinary for permanent
+ * cloud storage that works on Vercel, Railway, Fly.io etc.
  *
- * Limit: 2MB file size to keep base64 strings manageable in the DB.
+ * Limit: 5MB file size.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -35,33 +40,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Validate size (2 MB max to keep base64 reasonable) ────────────────────
-    const maxSize = 2 * 1024 * 1024; // 2 MB
+    // ── Validate size (5MB max) ───────────────────────────────────────────────
+    const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'Photo must be under 2MB. Please compress your image first.' },
+        { error: 'Photo must be under 5MB. Please compress your image first.' },
         { status: 400 },
       );
     }
 
-    // ── Convert to base64 data URL ────────────────────────────────────────────
-    const buffer      = Buffer.from(await file.arrayBuffer());
-    const base64      = buffer.toString('base64');
-    const dataUrl     = `data:${file.type};base64,${base64}`;
-
-    // ── Save to DB (permanent — survives restarts/redeploys) ──────────────────
-    const updatedUser = await prisma.user.update({
-      where:  { id: userId },
-      data:   { profilePicture: dataUrl },
-      select: { id: true, email: true, name: true, profilePicture: true, provider: true },
+    // ── Delete old profile picture from Cloudinary if it exists ──────────────
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePicture: true },
     });
 
-    console.log(`✅ Profile photo saved to DB for user ${userId} (${Math.round(base64.length / 1024)}KB base64)`);
+    if (existingUser?.profilePicture && existingUser.profilePicture.includes('cloudinary.com')) {
+      try {
+        const oldPublicId = existingUser.profilePicture
+          .split('/upload/')[1]
+          ?.replace(/^v\d+\//, '')
+          ?.replace(/\.[^/.]+$/, '');
+        if (oldPublicId) {
+          await cloudinary.uploader.destroy(oldPublicId, { resource_type: 'image' });
+        }
+      } catch (e) {
+        console.warn('Could not delete old profile picture from Cloudinary:', e);
+      }
+    }
+
+    // ── Upload to Cloudinary ──────────────────────────────────────────────────
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    const uploadResult = await new Promise<any>((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'image',
+          public_id: `profile-pictures/user_${userId}`,
+          overwrite: true,
+          folder: 'profile-pictures',
+          transformation: [
+            { width: 400, height: 400, crop: 'fill', gravity: 'face' }, // auto crop to face
+            { quality: 'auto', fetch_format: 'auto' },                  // auto optimize
+          ],
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(buffer);
+    });
+
+    const profilePicture = uploadResult.secure_url;
+
+    console.log(`✅ Profile photo uploaded to Cloudinary for user ${userId}`);
+
+    // ── Save Cloudinary URL to DB ─────────────────────────────────────────────
+    const updatedUser = await prisma.user.update({
+      where:  { id: userId },
+      data:   { profilePicture },
+      select: { id: true, email: true, name: true, profilePicture: true, provider: true },
+    });
 
     return NextResponse.json({
       success:        true,
       user:           updatedUser,
-      profilePicture: dataUrl,
+      profilePicture,
     });
 
   } catch (error: any) {
