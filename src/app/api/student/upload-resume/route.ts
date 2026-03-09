@@ -1,9 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
+
+// ── Cloudinary upload via REST API (no SDK stream issues) ─────────────────────
+async function uploadToCloudinary(
+  buffer: Buffer,
+  filename: string,          // e.g. "Azad_Singh_resume_5"
+  folder: string,            // e.g. "student-resumes"
+  resourceType: 'raw' | 'image' = 'raw',
+): Promise<string> {
+  const cloudName  = process.env.CLOUDINARY_CLOUD_NAME!;
+  const apiKey     = process.env.CLOUDINARY_API_KEY!;
+  const apiSecret  = process.env.CLOUDINARY_API_SECRET!;
+  const timestamp  = Math.floor(Date.now() / 1000);
+
+  // ── Build signature ───────────────────────────────────────────────────────
+  // Params must be sorted alphabetically for signature
+  const paramsToSign = `folder=${folder}&overwrite=true&public_id=${filename}&timestamp=${timestamp}`;
+
+  const crypto = await import('crypto');
+  const signature = crypto
+    .createHash('sha256')
+    .update(paramsToSign + apiSecret)
+    .digest('hex');
+
+  // ── Build multipart form ──────────────────────────────────────────────────
+  const formData = new FormData();
+  const blob = new Blob([new Uint8Array(buffer)], { type: 'application/octet-stream' });
+  formData.append('file', blob, filename);
+  formData.append('public_id',  filename);
+  formData.append('folder',     folder);
+  formData.append('overwrite',  'true');
+  formData.append('timestamp',  String(timestamp));
+  formData.append('api_key',    apiKey);
+  formData.append('signature',  signature);
+
+  const url = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
+  const res = await fetch(url, { method: 'POST', body: formData });
+  const data = await res.json();
+
+  if (!res.ok) {
+    console.error('Cloudinary error:', data);
+    throw new Error(data?.error?.message || 'Cloudinary upload failed');
+  }
+
+  return data.secure_url as string;
+}
+
+// ── Delete from Cloudinary via REST API ──────────────────────────────────────
+async function deleteFromCloudinary(
+  url: string,
+  resourceType: 'raw' | 'image' = 'raw',
+): Promise<void> {
+  try {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME!;
+    const apiKey    = process.env.CLOUDINARY_API_KEY!;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET!;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    // Extract public_id including folder, strip version and extension
+    const afterUpload = url.split('/upload/')[1];
+    if (!afterUpload) return;
+    const withoutVersion = afterUpload.replace(/^v\d+\//, '');
+    const publicId = withoutVersion.replace(/\.[^/.]+$/, '');
+
+    const crypto = await import('crypto');
+    const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}`;
+    const signature = crypto
+      .createHash('sha256')
+      .update(paramsToSign + apiSecret)
+      .digest('hex');
+
+    const formData = new FormData();
+    formData.append('public_id',     publicId);
+    formData.append('timestamp',     String(timestamp));
+    formData.append('api_key',       apiKey);
+    formData.append('signature',     signature);
+    formData.append('resource_type', resourceType);
+
+    await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`,
+      { method: 'POST', body: formData },
+    );
+  } catch (e) {
+    console.warn('Could not delete old file from Cloudinary:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,31 +105,29 @@ export async function POST(request: NextRequest) {
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ];
-
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         { error: 'Invalid file type. Only PDF, DOC, and DOCX files are allowed.' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // 5MB limit — base64 encoding adds ~33% overhead, keeping total under Vercel's 4.5MB limit
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: 'File size too large. Maximum size is 5MB.' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // ── Fetch student's name to build a friendly filename ──────────────────
+    // ── Build a safe filename (no slashes, no special chars) ──────────────
     const studentProfile = await prisma.studentProfile.findUnique({
-      where: { userId },
-      select: { name: true },
+      where:  { userId },
+      select: { name: true, resumeUrl: true },
     });
-
-    // Fall back to the user's account name if profile name isn't set yet
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where:  { id: userId },
       select: { name: true, email: true },
     });
 
@@ -55,42 +137,28 @@ export async function POST(request: NextRequest) {
       user?.email?.split('@')[0] ||
       `user_${userId}`;
 
-    // Convert "Azad Singh" → "Azad_Singh"  (replace spaces & special chars)
+    // Strip everything except letters, digits, spaces → replace spaces with _
     const safeName = rawName
       .trim()
-      .replace(/[^a-zA-Z0-9\s]/g, '')   // remove special chars
-      .replace(/\s+/g, '_');             // spaces → underscores
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 50); // cap length just in case
 
-    const fileExtension = path.extname(file.name); // .pdf / .doc / .docx
-    const fileName = `${safeName}_resume${fileExtension}`; // e.g. Azad_Singh_resume.pdf
+    // Final filename — guaranteed no slashes
+    const filename = `${safeName}_resume_${userId}`;
 
-    // ── Save file ──────────────────────────────────────────────────────────
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'resumes');
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
+    // ── Delete old resume from Cloudinary ─────────────────────────────────
+    if (studentProfile?.resumeUrl?.includes('cloudinary.com')) {
+      await deleteFromCloudinary(studentProfile.resumeUrl, 'raw');
     }
 
-    // Delete old resume file if it exists (avoid stale files piling up)
-    const existingProfile = await prisma.studentProfile.findUnique({
-      where: { userId },
-      select: { resumeUrl: true },
-    });
-    if (existingProfile?.resumeUrl) {
-      const oldPath = path.join(process.cwd(), 'public', existingProfile.resumeUrl);
-      if (existsSync(oldPath)) {
-        await unlink(oldPath).catch(() => {}); // ignore errors if already gone
-      }
-    }
-
-    const filePath = path.join(uploadsDir, fileName);
-    const bytes = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(bytes));
-
-    const resumeUrl = `/uploads/resumes/${fileName}`;
+    // ── Upload ────────────────────────────────────────────────────────────
+    const buffer   = Buffer.from(await file.arrayBuffer());
+    const resumeUrl = await uploadToCloudinary(buffer, filename, 'student-resumes', 'raw');
 
     await prisma.studentProfile.update({
       where: { userId },
-      data: { resumeUrl },
+      data:  { resumeUrl },
     });
 
     return NextResponse.json({
@@ -103,7 +171,7 @@ export async function POST(request: NextRequest) {
     console.error('Upload error:', error);
     return NextResponse.json(
       { error: 'Failed to upload resume' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -113,7 +181,7 @@ export async function DELETE(request: NextRequest) {
     const { userId } = await requireAuth(['STUDENT']);
 
     const profile = await prisma.studentProfile.findUnique({
-      where: { userId },
+      where:  { userId },
       select: { resumeUrl: true },
     });
 
@@ -121,14 +189,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No resume found' }, { status: 404 });
     }
 
-    const filePath = path.join(process.cwd(), 'public', profile.resumeUrl);
-    if (existsSync(filePath)) {
-      await unlink(filePath).catch(() => {});
+    if (profile.resumeUrl.includes('cloudinary.com')) {
+      await deleteFromCloudinary(profile.resumeUrl, 'raw');
     }
 
     await prisma.studentProfile.update({
       where: { userId },
-      data: { resumeUrl: null },
+      data:  { resumeUrl: null },
     });
 
     return NextResponse.json({
@@ -140,7 +207,7 @@ export async function DELETE(request: NextRequest) {
     console.error('Delete error:', error);
     return NextResponse.json(
       { error: 'Failed to delete resume' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

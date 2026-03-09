@@ -74,7 +74,12 @@ function RatingBar({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-
+// ── Cloudinary Helpers ───────────────────────────────────────────────────────
+function getCloudinaryPreviewUrl(url: string): string {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  if (url.includes('fl_inline')) return url;
+  return url.replace('/upload/', '/upload/fl_inline/');
+}
 // ─── Subscription Card ────────────────────────────────────────────────────────
 
 function SubscriptionCard({ profile }: { profile: Profile }) {
@@ -550,7 +555,7 @@ function DashboardInner() {
             </div>
           </form>
         ) : profile ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
             {[
               { label: 'College',          value: profile.college },
               { label: 'Branch',           value: profile.branch },
@@ -586,7 +591,7 @@ function DashboardInner() {
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <a href={profile.resumeUrl} target="_blank" rel="noopener noreferrer"
+                  <a href={getCloudinaryPreviewUrl(profile.resumeUrl)} target="_blank" rel="noopener noreferrer"
                     className="flex-1 sm:flex-none text-center px-3 sm:px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-xs sm:text-sm font-medium">
                     View
                   </a>
@@ -635,7 +640,7 @@ function DashboardInner() {
       {profile && <NextActionBanner profile={profile} sessions={sessions} />}
 
       {/* ── Quick Stats ── */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4 sm:gap-5 mb-4 sm:mb-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-5 mb-4 sm:mb-6">
         <Card variant="bordered" className="p-3 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-base sm:text-lg shrink-0">

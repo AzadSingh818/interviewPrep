@@ -22,6 +22,12 @@ function isGoogleDefaultPhoto(url: string | null | undefined): boolean {
 function hasCustomPhoto(user: any): boolean {
   return !!user?.profilePicture && !isGoogleDefaultPhoto(user.profilePicture);
 }
+//----helper functions for cloudinary upload and delete, used in both profile picture and document upload routes, to avoid code duplication----
+function getCloudinaryPreviewUrl(url: string): string {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  if (url.includes('fl_inline')) return url;
+  return url.replace('/upload/', '/upload/fl_inline/');
+}
 
 // ─── Profile Header ───────────────────────────────────────────────────────────
 function ProfileHeader({
@@ -209,7 +215,7 @@ function DocumentUploadSection({
           {profile?.resumeUrl ? (
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="text-xs text-green-600 font-medium">✅ Uploaded</span>
-              <a href={profile.resumeUrl} target="_blank" rel="noopener noreferrer"
+              <a href={getCloudinaryPreviewUrl(profile.resumeUrl)} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-indigo-600 hover:underline">View →</a>
             </div>
           ) : (
@@ -236,7 +242,7 @@ function DocumentUploadSection({
           {profile?.idCardUrl ? (
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="text-xs text-green-600 font-medium">✅ Uploaded</span>
-              <a href={profile.idCardUrl} target="_blank" rel="noopener noreferrer"
+              <a href={getCloudinaryPreviewUrl(profile.idCardUrl)} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-indigo-600 hover:underline">View →</a>
             </div>
           ) : (
