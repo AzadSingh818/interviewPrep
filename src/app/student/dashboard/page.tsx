@@ -837,7 +837,11 @@ function DashboardInner() {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <a
-                    href={profile.resumeUrl ? getCloudinaryPreviewUrl(profile.resumeUrl) : "#"}
+                    href={
+                      profile.resumeUrl
+                        ? getCloudinaryPreviewUrl(profile.resumeUrl)
+                        : "#"
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => {
@@ -1045,6 +1049,18 @@ function DashboardInner() {
                   {sessions.length !== 1 ? "s" : ""}
                 </p>
               )}
+            </div>
+          </Link>
+
+          <Link href="/student/coding">
+            <div className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
+              <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">💻</div>
+              <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">
+                Coding Practice
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600">
+                Solve C, C++ and SQL challenges
+              </p>
             </div>
           </Link>
 

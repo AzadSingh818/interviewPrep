@@ -32,7 +32,7 @@ export async function GET() {
             guidanceLimit: true,
             planExpiresAt: true,
             // ✅ Unlock field — required for Choose Interviewer feature
-            preferredInterviewerUnlocked: true,
+            //preferredInterviewerUnlocked: true,
             createdAt: true,
             updatedAt: true,
           },

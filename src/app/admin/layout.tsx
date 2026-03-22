@@ -19,10 +19,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const navItems = [
-    { href: '/admin/dashboard',    label: 'Dashboard',    icon: '📊' },
-    { href: '/admin/interviewers', label: 'Interviewers', icon: '👥' },
-    { href: '/admin/analytics',    label: 'Analytics',    icon: '📈' },
-    { href: '/admin/config',       label: 'Config',       icon: '⚙️' },
+    { href: '/admin/dashboard',    label: 'Dashboard',         icon: '📊' },
+    { href: '/admin/interviewers', label: 'Interviewers',      icon: '👥' },
+    { href: '/admin/analytics',    label: 'Analytics',         icon: '📈' },
+    { href: '/admin/config',       label: 'Config',            icon: '⚙️' },
+    { href: '/admin/coding',       label: 'Coding Questions',  icon: '💻' }, // ✅ NEW
   ];
 
   return (

@@ -337,8 +337,8 @@ function SettingsModal({
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // 🚀 CRITICAL: Interview room gets NO shell
-  if (pathname?.includes('/interview-room')) {
+  // 🚀 CRITICAL: Interview room AND coding editor get NO shell
+  if (pathname?.includes('/interview-room') || pathname?.includes('/student/coding/')) {
     return <>{children}</>;
   }
 
@@ -375,17 +375,56 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const displayName  = profile?.name || user?.name || user?.email?.split('@')[0] || 'Student';
   const userInitials = displayName.split(' ').map((n: string) => n[0]).filter(Boolean).join('').toUpperCase().slice(0, 2);
 
-  // "Setup Profile" CTA is hidden once all key fields are filled
   const profileComplete = !!(profile?.name && profile?.college && profile?.branch && profile?.targetRole && profile?.resumeUrl);
   const isPro           = profile?.planType === 'PRO';
   const interviewsLeft  = profile ? profile.interviewsLimit - profile.interviewsUsed : null;
   const guidanceLeft    = profile ? profile.guidanceLimit   - profile.guidanceUsed   : null;
 
-  const navigation = [
-    { name: 'Dashboard',      href: '/student/dashboard',      icon: '📊' },
-    { name: 'Book Guidance',  href: '/student/book-guidance',  icon: '🎓' },
-    { name: 'Book Interview', href: '/student/book-interview', icon: '💼' },
-    { name: 'My Sessions',    href: '/student/sessions',       icon: '📅' },
+  // ── Icon strip nav items (narrow sidebar) ──────────────────────────────────
+  const iconStripItems = [
+    { href: '/student/dashboard', title: 'Dashboard', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/></svg>
+    )},
+    { href: '/student/book-guidance', title: 'Book Guidance', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l9-5-9-5-9 5 9 5z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+    )},
+    { href: '/student/book-interview', title: 'Book Interview', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+    )},
+    { href: '/student/sessions', title: 'My Sessions', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    )},
+    // ✅ NEW: Coding Practice
+    { href: '/student/coding', title: 'Coding Practice', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+      </svg>
+    )},
+    { href: '#settings', title: 'Settings', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    )},
+  ];
+
+  // ── Full sidebar nav items ─────────────────────────────────────────────────
+  const sidebarNavItems = [
+    { name: 'Dashboard', href: '/student/dashboard', icon: (
+      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/></svg>
+    )},
+    { name: 'Book Guidance', href: '/student/book-guidance', icon: (
+      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l9-5-9-5-9 5 9 5z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+    )},
+    { name: 'Book Interview', href: '/student/book-interview', icon: (
+      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+    )},
+    { name: 'My Sessions', href: '/student/sessions', icon: (
+      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    )},
+    // ✅ NEW: Coding Practice
+    { name: 'Coding Practice', href: '/student/coding', icon: (
+      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+      </svg>
+    )},
   ];
 
   return (
@@ -417,24 +456,8 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
         {/* Nav icons */}
         <div className="flex flex-col items-center gap-1 flex-1">
-          {[
-            { href: '/student/dashboard', title: 'Dashboard', icon: (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/></svg>
-            )},
-            { href: '/student/book-guidance', title: 'Book Guidance', icon: (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l9-5-9-5-9 5 9 5z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
-            )},
-            { href: '/student/book-interview', title: 'Book Interview', icon: (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            )},
-            { href: '/student/sessions', title: 'My Sessions', icon: (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            )},
-            { href: '#settings', title: 'Settings', icon: (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            )},
-          ].map(item => {
-            const isActive = pathname === item.href;
+          {iconStripItems.map(item => {
+            const isActive   = pathname === item.href;
             const isSettings = item.href === '#settings';
             const btn = (
               <button
@@ -451,7 +474,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
             return (
               <Link key={item.href} href={item.href} title={item.title}>
                 <div className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors
-                  ${isActive ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}>
+                  ${isActive ? 'bg-indigo-500/20 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
                   {item.icon}
                 </div>
               </Link>
@@ -516,32 +539,26 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
         {/* ── Navigation ── */}
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
-          {[
-            { name: 'Dashboard', href: '/student/dashboard', icon: (
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/><rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="1.8"/></svg>
-            )},
-            { name: 'Book Guidance', href: '/student/book-guidance', icon: (
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l9-5-9-5-9 5 9 5z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
-            )},
-            { name: 'Book Interview', href: '/student/book-interview', icon: (
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            )},
-            { name: 'My Sessions', href: '/student/sessions', icon: (
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            )},
-          ].map(item => {
-            const isActive = pathname === item.href;
+          {sidebarNavItems.map(item => {
+            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13.5px] font-medium group
-                  ${isActive ? 'bg-white/10 text-black' : 'text-gray-400 hover:bg-white/8 hover:text-black'}`}
+                  ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
               >
-                <span className={`shrink-0 transition-colors ${isActive ? 'text-black' : 'text-gray-500 group-hover:text-gray-300'}`}>
+                <span className={`shrink-0 transition-colors ${isActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
                   {item.icon}
                 </span>
                 {item.name}
+                {/* Badge for coding */}
+                {item.href === '/student/coding' && (
+                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded-full">
+                    NEW
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -549,21 +566,21 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           {/* Settings */}
           <button
             onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13.5px] font-medium text-gray-400 hover:bg-white/8 hover:text-white group"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13.5px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 group"
           >
-            <svg className="w-[18px] h-[18px] shrink-0 text-gray-500 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-[18px] h-[18px] shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
             Settings
           </button>
 
-          <div className="my-3 border-t border-white/8" />
+          <div className="my-3 border-t border-gray-100" />
 
           {/* Sessions left */}
           {profile && (
             <div className="px-3 py-2">
-              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Sessions Left</p>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Sessions Left</p>
               <div className="space-y-2">
                 {interviewsLeft !== null && (
                   <div className="flex items-center justify-between">
@@ -571,7 +588,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                       Interviews
                     </span>
-                    <span className={`text-[12px] font-bold ${interviewsLeft === 0 ? 'text-red-400' : interviewsLeft <= 1 ? 'text-amber-400' : 'text-indigo-400'}`}>
+                    <span className={`text-[12px] font-bold ${interviewsLeft === 0 ? 'text-red-500' : interviewsLeft <= 1 ? 'text-amber-500' : 'text-indigo-500'}`}>
                       {interviewsLeft} left
                     </span>
                   </div>
@@ -582,7 +599,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
                       Guidance
                     </span>
-                    <span className={`text-[12px] font-bold ${guidanceLeft === 0 ? 'text-red-400' : guidanceLeft <= 1 ? 'text-amber-400' : 'text-violet-400'}`}>
+                    <span className={`text-[12px] font-bold ${guidanceLeft === 0 ? 'text-red-500' : guidanceLeft <= 1 ? 'text-amber-500' : 'text-violet-500'}`}>
                       {guidanceLeft} left
                     </span>
                   </div>
@@ -593,26 +610,26 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
           {/* Upgrade / Pro CTA */}
           {!isPro ? (
-            <div className="mx-1 mt-1 p-3 bg-white/5 border border-white/10 rounded-xl">
-              <p className="text-[13px] font-semibold text-white mb-0.5">Go Pro 🚀</p>
+            <div className="mx-1 mt-1 p-3 bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl">
+              <p className="text-[13px] font-semibold text-slate-800 mb-0.5">Go Pro 🚀</p>
               <p className="text-[11px] text-gray-500 mb-2.5">Unlock 10 sessions/month</p>
-              <Link href="/student/dashboard?upgrade=1">
+              <Link href="/student/dashboard?upgrade=1" onClick={() => setSidebarOpen(false)}>
                 <button className="w-full py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[12px] font-bold rounded-lg hover:opacity-90 transition-opacity">
                   Upgrade — ₹99/mo
                 </button>
               </Link>
             </div>
           ) : (
-            <div className="mx-1 mt-1 p-3 bg-white/5 border border-white/10 rounded-xl text-center">
-              <p className="text-[13px] font-semibold text-indigo-400">⭐ Pro Plan Active</p>
+            <div className="mx-1 mt-1 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-center">
+              <p className="text-[13px] font-semibold text-indigo-600">⭐ Pro Plan Active</p>
               <p className="text-[11px] text-gray-500 mt-0.5">Enjoy unlimited access</p>
             </div>
           )}
 
           {/* Incomplete profile warning */}
           {!profileComplete && (
-            <div className="mx-1 mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-              <p className="text-[11px] font-semibold text-amber-400 mb-1.5">⚠️ Complete your profile</p>
+            <div className="mx-1 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-[11px] font-semibold text-amber-700 mb-1.5">⚠️ Complete your profile</p>
               <button
                 onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }}
                 className="w-full py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded-lg transition-colors"
@@ -624,7 +641,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         </div>
 
         {/* ── Bottom: User profile ── */}
-        <div className="shrink-0 border-t border-white/8 px-4 py-3">
+        <div className="shrink-0 border-t border-gray-100 px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               {user?.profilePicture ? (
@@ -637,7 +654,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                 </div>
               )}
               {user?.provider === 'GOOGLE' && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[white] rounded-full flex items-center justify-center">
+                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center shadow-sm">
                   <svg className="w-2.5 h-2.5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -648,13 +665,13 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-black truncate">{displayName}</p>
-              <p className="text-[11px] text-green truncate">{isPro ? '⭐ Pro Plan' : 'Free Plan'}</p>
+              <p className="text-[13px] font-semibold text-slate-900 truncate">{displayName}</p>
+              <p className="text-[11px] text-slate-500 truncate">{isPro ? '⭐ Pro Plan' : 'Free Plan'}</p>
             </div>
             <button
               onClick={handleLogout}
               title="Logout"
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -676,7 +693,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           </Link>
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-slate-900 dark:text-black">{displayName}</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">{displayName}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
             </div>
             <div className="relative">
@@ -685,7 +702,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                   <Image src={user.profilePicture} alt={displayName} width={36} height={36} className="object-cover" />
                 </div>
               ) : (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-black text-sm font-bold">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold">
                   {userInitials}
                 </div>
               )}
@@ -722,6 +739,3 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     </div>
   );
 }
-
-
-
