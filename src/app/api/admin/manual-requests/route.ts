@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || 'PENDING';
 
     const whereFilter: any = status === 'ALL' ? {} : { status };
-    const requests = await prisma.manualBookingRequest.findMany({
+    const requests = await prisma.manual_booking_requests.findMany({
         where: whereFilter,
       include: {
         student: {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the manual booking request
-    const manualRequest = await prisma.manualBookingRequest.findUnique({
+    const manualRequest = await prisma.manual_booking_requests.findUnique({
       where: { id: parseInt(requestId) },
       include: {
         student: {
@@ -92,19 +92,19 @@ export async function POST(request: NextRequest) {
     const [session] = await prisma.$transaction([
       prisma.session.create({
         data: {
-          studentId: manualRequest.studentId,
+          studentId: manualRequest.student_id,
           interviewerId: parseInt(interviewerId),
-          sessionType: manualRequest.sessionType,
+          sessionType: manualRequest.session_type,
           status: 'SCHEDULED',
           scheduledTime: new Date(scheduledTime),
           durationMinutes: duration,
           topic: manualRequest.topic || null,
           role: manualRequest.role || null,
           difficulty: manualRequest.difficulty || null,
-          interviewType: manualRequest.interviewType || null,
+          interviewType: manualRequest.interview_type || null,
         },
       }),
-      prisma.manualBookingRequest.update({
+      prisma.manual_booking_requests.update({
         where: { id: manualRequest.id },
         data: {
           status: 'ASSIGNED',
@@ -114,16 +114,16 @@ export async function POST(request: NextRequest) {
     ]);
 
     // Link sessionId back to the request
-    await prisma.manualBookingRequest.update({
+    await prisma.manual_booking_requests.update({
       where: { id: manualRequest.id },
       data: { sessionId: session.id },
     });
 
     // Increment student usage counter
     const usageField =
-      manualRequest.sessionType === 'INTERVIEW' ? 'interviewsUsed' : 'guidanceUsed';
+      manualRequest.session_type === 'INTERVIEW' ? 'interviewsUsed' : 'guidanceUsed';
     await prisma.studentProfile.update({
-      where: { id: manualRequest.studentId },
+      where: { id: manualRequest.student_id },
       data: { [usageField]: { increment: 1 } },
     });
 
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
         durationMinutes: duration,
         role: manualRequest.role,
         difficulty: manualRequest.difficulty,
-        interviewType: manualRequest.interviewType,
+        interviewType: manualRequest.interview_type,
         topic: manualRequest.topic,
         sessionId: session.id,
       });
