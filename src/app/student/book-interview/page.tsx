@@ -231,7 +231,7 @@ function InterviewerPickerModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(15,10,40,0.55)' }}
       onClick={onClose}>
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden"
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}>
         <div className="h-1 w-full bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400" />
 
@@ -243,10 +243,10 @@ function InterviewerPickerModal({
                 <button onClick={() => setStep(1)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-sm font-bold">←</button>
               )}
               <div>
-                <h2 className="text-xl font-black text-slate-900">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">
                   {step === 1 ? '🎯 Pick Your Interviewer' : '📋 Booking Details'}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   {step === 1
                     ? 'Select an interviewer to continue'
                     : selectedInterviewer
@@ -255,13 +255,13 @@ function InterviewerPickerModal({
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all text-lg font-bold">✕</button>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-white transition-all text-lg font-bold">✕</button>
           </div>
 
           {/* Step indicator */}
           <div className="flex items-center gap-2 mb-5">
-            <div className={`flex-1 h-1.5 rounded-full ${step >= 1 ? 'bg-violet-500' : 'bg-slate-200'}`} />
-            <div className={`flex-1 h-1.5 rounded-full ${step >= 2 ? 'bg-violet-500' : 'bg-slate-200'}`} />
+            <div className={`flex-1 h-1.5 rounded-full ${step >= 1 ? 'bg-violet-500' : 'bg-slate-200 dark:bg-slate-800'}`} />
+            <div className={`flex-1 h-1.5 rounded-full ${step >= 2 ? 'bg-violet-500' : 'bg-slate-200 dark:bg-slate-800'}`} />
           </div>
 
           {/* ── Step 1: Choose interviewer ── */}
@@ -269,7 +269,7 @@ function InterviewerPickerModal({
             <>
               <input type="text" placeholder="Search by name, company, or role…" value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80" />
 
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1 mb-5">
                 {filtered.length === 0 && <p className="text-center text-slate-400 text-sm py-6">No interviewers match your search.</p>}
@@ -277,16 +277,16 @@ function InterviewerPickerModal({
                   const isSel = selected === iv.id;
                   return (
                     <button key={iv.id} onClick={() => setSelected(isSel ? null : iv.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 text-left transition-all ${isSel ? 'border-violet-500 bg-violet-50' : 'border-slate-100 bg-slate-50 hover:border-slate-300 hover:bg-white'}`}>
+                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 text-left transition-all ${isSel ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10' : 'border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-white/[0.07]'}`}>
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${isSel ? 'bg-violet-500 text-white' : 'bg-gradient-to-br from-indigo-400 to-violet-500 text-white'}`}>
                         {iv.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-900 text-sm truncate">{iv.name}</p>
-                        <p className="text-xs text-slate-500 truncate">🏢 {iv.companies.slice(0, 2).join(' · ')}{iv.yearsOfExperience ? ` · ${iv.yearsOfExperience}y exp` : ''}</p>
+                        <p className="font-bold text-slate-900 dark:text-white text-sm truncate">{iv.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">🏢 {iv.companies.slice(0, 2).join(' · ')}{iv.yearsOfExperience ? ` · ${iv.yearsOfExperience}y exp` : ''}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {iv.rolesSupported.slice(0, 3).map((r) => (
-                            <span key={r} className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">{r}</span>
+                            <span key={r} className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 rounded-full">{r}</span>
                           ))}
                         </div>
                       </div>
@@ -297,7 +297,7 @@ function InterviewerPickerModal({
               </div>
 
               <div className="flex gap-3">
-                <button onClick={handleNoPreference} className="flex-1 py-3 rounded-2xl font-bold text-sm border-2 border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all">
+                <button onClick={handleNoPreference} className="flex-1 py-3 rounded-2xl font-bold text-sm border-2 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-white/5 transition-all">
                   No Preference
                 </button>
                 <button onClick={handleNext} disabled={selected === null}
@@ -313,13 +313,13 @@ function InterviewerPickerModal({
             <>
               {/* Selected interviewer summary */}
               {selectedInterviewer && (
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-violet-50 border border-violet-200 mb-5">
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-400/20 mb-5">
                   <div className="w-9 h-9 rounded-xl bg-violet-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
                     {selectedInterviewer.name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-900 text-sm">{selectedInterviewer.name}</p>
-                    <p className="text-xs text-slate-500">{selectedInterviewer.companies.slice(0, 2).join(' · ')}</p>
+                    <p className="font-bold text-slate-900 dark:text-white text-sm">{selectedInterviewer.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{selectedInterviewer.companies.slice(0, 2).join(' · ')}</p>
                   </div>
                   <span className="text-violet-500 text-lg">✓</span>
                 </div>
@@ -328,18 +328,18 @@ function InterviewerPickerModal({
               <div className="space-y-4">
                 {/* Target Role */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Target Role</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Target Role</label>
                   <input type="text" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
                     placeholder="e.g., Software Engineer, Product Manager"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                    className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80" />
                 </div>
 
                 {/* Difficulty + Interview Type */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Difficulty Level</label>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Difficulty Level</label>
                     <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white">
+                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80">
                       <option value="">Select…</option>
                       <option value="EASY">Easy</option>
                       <option value="MEDIUM">Medium</option>
@@ -347,9 +347,9 @@ function InterviewerPickerModal({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Interview Type</label>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Interview Type</label>
                     <select value={form.interviewType} onChange={(e) => setForm({ ...form, interviewType: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white">
+                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80">
                       <option value="">Select…</option>
                       <option value="TECHNICAL">Technical</option>
                       <option value="HR">HR / Behavioral</option>
@@ -361,25 +361,25 @@ function InterviewerPickerModal({
                 {/* Duration + Date/Time */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Duration</label>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Duration</label>
                     <select value={form.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white">
+                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80">
                       <option value="45">45 minutes</option>
                       <option value="60">60 minutes</option>
                       <option value="90">90 minutes</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Date & Time</label>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Preferred Date & Time</label>
                     <input type="datetime-local" value={form.scheduledTime} min={minDateTime}
                       onChange={(e) => setForm({ ...form, scheduledTime: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80" />
                   </div>
                 </div>
               </div>
 
               {(formError || error) && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mt-4 text-sm text-red-700">{formError || error}</div>
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-400/20 rounded-xl p-3 mt-4 text-sm text-red-700 dark:text-red-300">{formError || error}</div>
               )}
 
               <button onClick={handleSubmit} disabled={submitting}
@@ -548,7 +548,7 @@ export default function BookInterviewPage() {
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">Loading…</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
         </div>
       </div>
     );
@@ -557,8 +557,8 @@ export default function BookInterviewPage() {
   if (limitReached && plan) {
     return (
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 mb-2">Book Mock Interview</h1>
-        <p className="text-slate-600 mb-6 text-sm sm:text-base">We'll automatically match you with the best available interviewer.</p>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">Book Mock Interview</h1>
+        <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm sm:text-base">We'll automatically match you with the best available interviewer.</p>
         <PaymentGate planType={plan.planType} used={plan.interviewsUsed} limit={plan.interviewsLimit} sessionType="interview" onPaymentSuccessAction={handlePaymentSuccess} />
       </div>
     );
@@ -580,8 +580,8 @@ export default function BookInterviewPage() {
       )}
 
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 mb-1 sm:mb-2">Book Mock Interview</h1>
-        <p className="text-slate-600 mb-4 sm:mb-6 text-sm sm:text-base">Auto-assign or choose your preferred interviewer.</p>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white mb-1 sm:mb-2">Book Mock Interview</h1>
+        <p className="text-slate-600 dark:text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">Auto-assign or choose your preferred interviewer.</p>
 
         {plan && (
           <UsageBanner planType={plan.planType} used={plan.interviewsUsed} limit={plan.interviewsLimit} sessionType="interview" planExpiresAt={plan.planExpiresAt} />
@@ -589,33 +589,33 @@ export default function BookInterviewPage() {
 
         {/* ── Mode selector ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          <div className="rounded-2xl border-2 border-indigo-200 bg-indigo-50 p-4">
+          <div className="rounded-2xl border-2 border-indigo-200 dark:border-indigo-400/20 bg-indigo-50 dark:bg-indigo-500/10 p-4">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl">⚡</span>
-              <span className="font-bold text-indigo-800 text-sm">Auto-Assign</span>
-              <span className="ml-auto text-xs px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded-full font-semibold">FREE</span>
+              <span className="font-bold text-indigo-800 dark:text-indigo-200 text-sm">Auto-Assign</span>
+              <span className="ml-auto text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 rounded-full font-semibold">FREE</span>
             </div>
-            <p className="text-xs text-indigo-600">Our algorithm picks the best available interviewer for you instantly.</p>
+            <p className="text-xs text-indigo-600 dark:text-indigo-300">Our algorithm picks the best available interviewer for you instantly.</p>
           </div>
 
-          <button onClick={handlePreferredClick} className="rounded-2xl border-2 border-violet-200 bg-violet-50 p-4 text-left hover:border-violet-400 hover:bg-violet-100 transition-all">
+          <button onClick={handlePreferredClick} className="rounded-2xl border-2 border-violet-200 dark:border-violet-400/20 bg-violet-50 dark:bg-violet-500/10 p-4 text-left hover:border-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/15 transition-all">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl">🎯</span>
-              <span className="font-bold text-violet-800 text-sm">Choose Interviewer</span>
+              <span className="font-bold text-violet-800 dark:text-violet-200 text-sm">Choose Interviewer</span>
               {plan?.preferredInterviewerUnlocked ? (
-                <span className="ml-auto text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">✓ Unlocked</span>
+                <span className="ml-auto text-xs px-2 py-0.5 bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300 rounded-full font-semibold">✓ Unlocked</span>
               ) : (
-                <span className="ml-auto text-xs px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full font-semibold">🔒 ₹50</span>
+                <span className="ml-auto text-xs px-2 py-0.5 bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 rounded-full font-semibold">🔒 ₹50</span>
               )}
             </div>
-            <p className="text-xs text-violet-600">
+            <p className="text-xs text-violet-600 dark:text-violet-300">
               {plan?.preferredInterviewerUnlocked ? 'Pick any approved interviewer. Admin will confirm your slot.' : 'Unlock once to browse & choose a company-specific interviewer.'}
             </p>
           </button>
         </div>
 
         {/* ── Auto-assign form ── */}
-        <Card variant="elevated" className="p-4 sm:p-6 lg:p-8">
+        <Card variant="elevated" className="theme-surface-card p-4 sm:p-6 lg:p-8">
           <form onSubmit={handleAutoSubmit} className="space-y-4 sm:space-y-6">
             <Input label="Target Role" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} placeholder="e.g., Software Engineer, Product Manager" required />
 
@@ -632,13 +632,13 @@ export default function BookInterviewPage() {
               <Input label="Preferred Date & Time" type="datetime-local" value={formData.scheduledTime} min={minDateTime} onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })} required />
             </div>
 
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 sm:p-4">
-              <p className="text-xs sm:text-sm text-indigo-900">
+            <div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-400/20 rounded-xl p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-indigo-900 dark:text-indigo-200">
                 <strong>Auto-Assignment:</strong> Clicking the button below uses our algorithm to instantly match you. To choose your own interviewer, click the <strong>🎯 Choose Interviewer</strong> card above.
               </p>
             </div>
 
-            {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4"><p className="text-xs sm:text-sm text-red-800">{error}</p></div>}
+            {error && <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-400/20 rounded-xl p-3 sm:p-4"><p className="text-xs sm:text-sm text-red-800 dark:text-red-200">{error}</p></div>}
 
             <Button type="submit" className="w-full" size="lg" disabled={submitting}>
               {submitting ? (

@@ -16,9 +16,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           {
             'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 shadow-lg shadow-indigo-500/30':
               variant === 'primary',
-            'bg-slate-200 text-slate-900 hover:bg-slate-300': variant === 'secondary',
+            'bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700': variant === 'secondary',
             'bg-red-600 text-white hover:bg-red-700': variant === 'danger',
-            'bg-transparent hover:bg-slate-100 text-slate-700': variant === 'ghost',
+            'bg-transparent hover:bg-slate-100 text-slate-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white': variant === 'ghost',
           },
           {
             'px-3 py-1.5 text-sm rounded-lg': size === 'sm',

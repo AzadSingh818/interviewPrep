@@ -104,7 +104,10 @@ export default function InterviewerAvailabilityPage() {
 
       {/* Add slot form */}
       {showForm && (
-        <Card variant="elevated" className="p-4 sm:p-6 mb-6 sm:mb-8">
+        <Card
+          variant="elevated"
+          className="theme-surface-card p-4 sm:p-6 mb-6 sm:mb-8"
+        >
           <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-4">Add New Time Slot</h2>
           <form onSubmit={handleAddSlot} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -152,7 +155,10 @@ export default function InterviewerAvailabilityPage() {
             Available Slots ({availableSlots.length})
           </h2>
           {availableSlots.length === 0 ? (
-            <Card variant="bordered" className="p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 text-sm">
+            <Card
+              variant="bordered"
+              className="theme-surface-card p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 text-sm"
+            >
               No available slots. Add some to start receiving bookings.
             </Card>
           ) : (
@@ -162,7 +168,11 @@ export default function InterviewerAvailabilityPage() {
                   (new Date(slot.endTime).getTime() - new Date(slot.startTime).getTime()) / 60000
                 );
                 return (
-                  <Card key={slot.id} variant="bordered" className="p-3 sm:p-4">
+                  <Card
+                    key={slot.id}
+                    variant="bordered"
+                    className="theme-surface-card p-3 sm:p-4"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-medium text-slate-900 dark:text-white text-sm sm:text-base">
@@ -192,7 +202,10 @@ export default function InterviewerAvailabilityPage() {
             Booked Slots ({bookedSlots.length})
           </h2>
           {bookedSlots.length === 0 ? (
-            <Card variant="bordered" className="p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 text-sm">
+            <Card
+              variant="bordered"
+              className="theme-surface-card p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 text-sm"
+            >
               No booked slots yet.
             </Card>
           ) : (
@@ -202,7 +215,11 @@ export default function InterviewerAvailabilityPage() {
                   (new Date(slot.endTime).getTime() - new Date(slot.startTime).getTime()) / 60000
                 );
                 return (
-                  <Card key={slot.id} variant="bordered" className="p-3 sm:p-4 border-indigo-200 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-900/10">
+                  <Card
+                    key={slot.id}
+                    variant="bordered"
+                    className="theme-surface-card p-3 sm:p-4 border-indigo-200 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-900/10"
+                  >
                     <p className="font-medium text-slate-900 dark:text-white text-sm sm:text-base">
                       {formatDateTime(slot.startTime)}
                     </p>
@@ -231,7 +248,11 @@ export default function InterviewerAvailabilityPage() {
           </h2>
           <div className="space-y-2">
             {expiredSlots.map(slot => (
-              <Card key={slot.id} variant="bordered" className="p-3 sm:p-4 opacity-60">
+              <Card
+                key={slot.id}
+                variant="bordered"
+                className="theme-surface-card p-3 sm:p-4 opacity-60"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-slate-600 dark:text-slate-400 text-sm line-through">

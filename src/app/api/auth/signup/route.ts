@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, isAdminEmail } from '@/lib/auth';
+import { hashPassword } from '@/lib/auth';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
-import { UserRole } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,12 +62,6 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Determine actual role (check if admin email)
-    let actualRole: UserRole = role as UserRole;
-    if (isAdminEmail(email)) {
-      actualRole = 'ADMIN';
-    }
-
     // Generate OTP
     const otp = generateOTP();
     const expiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -81,7 +74,7 @@ export async function POST(request: NextRequest) {
         where: { email },
         data: {
           passwordHash,
-          role: actualRole,
+          role,
           verificationToken: otp,
           verificationTokenExpiry: expiryTime,
           expiresAt: accountExpiryTime,
@@ -93,7 +86,7 @@ export async function POST(request: NextRequest) {
         data: {
           email,
           passwordHash,
-          role: actualRole,
+          role,
           verificationToken: otp,
           verificationTokenExpiry: expiryTime,
           expiresAt: accountExpiryTime,

@@ -128,13 +128,16 @@ function ProfileHeader({
 
   const statusColor =
     profile?.status === "APPROVED"
-      ? "bg-green-100 text-green-700 border-green-200"
+      ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-300 dark:border-green-400/20"
       : profile?.status === "REJECTED"
-        ? "bg-red-100 text-red-700 border-red-200"
-        : "bg-amber-100 text-amber-700 border-amber-200";
+        ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-400/20"
+        : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-400/20";
 
   return (
-    <Card variant="elevated" className="p-4 sm:p-6 mb-4 sm:mb-6">
+    <Card
+      variant="elevated"
+      className="theme-surface-card p-4 sm:p-6 mb-4 sm:mb-6 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
+    >
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
         {/* Avatar */}
         <div className="relative shrink-0">
@@ -142,17 +145,17 @@ function ProfileHeader({
             <img
               src={user.profilePicture}
               alt={displayName}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-white shadow-lg"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-white dark:border-slate-900 shadow-lg"
             />
           ) : (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center border-4 border-white shadow-lg">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center border-4 border-white dark:border-slate-900 shadow-lg">
               <span className="text-white font-bold text-2xl sm:text-3xl">
                 {userInitials}
               </span>
             </div>
           )}
           {user?.provider === "GOOGLE" && (
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow border border-slate-100">
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center shadow border border-slate-100 dark:border-white/10">
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -207,7 +210,7 @@ function ProfileHeader({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline disabled:opacity-50"
+              className="text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 font-medium underline disabled:opacity-50"
             >
               {uploading ? "Uploading..." : "Change photo"}
             </button>
@@ -215,7 +218,7 @@ function ProfileHeader({
               <button
                 onClick={handleLinkedInSync}
                 disabled={syncing}
-                className="text-xs text-violet-600 hover:text-violet-800 font-medium underline disabled:opacity-50"
+                className="text-xs text-violet-600 dark:text-violet-300 hover:text-violet-800 dark:hover:text-violet-200 font-medium underline disabled:opacity-50"
               >
                 {syncing ? "Syncing..." : "Sync from LinkedIn"}
               </button>
@@ -226,10 +229,10 @@ function ProfileHeader({
             <p
               className={`text-xs mt-2 ${
                 (syncMsg?.type || uploadMsg?.type) === "success"
-                  ? "text-green-600"
+                  ? "text-green-600 dark:text-green-300"
                   : (syncMsg?.type || uploadMsg?.type) === "warn"
-                    ? "text-amber-600"
-                    : "text-red-600"
+                    ? "text-amber-600 dark:text-amber-300"
+                    : "text-red-600 dark:text-red-300"
               }`}
             >
               {syncMsg?.text || uploadMsg?.text}
@@ -256,7 +259,10 @@ function DocumentUploadSection({
   success,
 }: any) {
   return (
-    <Card variant="elevated" className="p-4 sm:p-6 mb-4 sm:mb-6">
+    <Card
+      variant="elevated"
+      className="theme-surface-card p-4 sm:p-6 mb-4 sm:mb-6 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
+    >
       <h2 className="text-lg sm:text-xl font-display font-semibold text-slate-900 dark:text-white mb-1">
         Verification Documents
       </h2>
@@ -267,13 +273,13 @@ function DocumentUploadSection({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Resume */}
-        <div className="p-3 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-xl">
+        <div className="theme-surface-subtle p-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-white/[0.02]">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
             📄 Resume / CV
           </p>
           {profile?.resumeUrl ? (
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="text-xs text-green-600 font-medium">
+              <span className="text-xs text-green-600 dark:text-green-300 font-medium">
                 ✅ Uploaded
               </span>
               <a
@@ -287,13 +293,13 @@ function DocumentUploadSection({
                     "_blank",
                   );
                 }}
-                className="text-xs text-indigo-600 hover:underline"
+                className="text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 underline"
               >
                 View →
               </a>
             </div>
           ) : (
-            <p className="text-xs text-slate-400 mb-2">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">
               No resume uploaded yet
             </p>
           )}
@@ -306,7 +312,7 @@ function DocumentUploadSection({
           />
           <button
             onClick={() => resumeInputRef.current?.click()}
-            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline"
+            className="text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 font-medium underline"
           >
             {resumeFile
               ? `Selected: ${resumeFile.name}`
@@ -317,26 +323,26 @@ function DocumentUploadSection({
         </div>
 
         {/* ID Card */}
-        <div className="p-3 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-xl">
+        <div className="theme-surface-subtle p-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-white/[0.02]">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
             🪪 Company ID Card
           </p>
           {profile?.idCardUrl ? (
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="text-xs text-green-600 font-medium">
+              <span className="text-xs text-green-600 dark:text-green-300 font-medium">
                 ✅ Uploaded
               </span>
               <a
                 href={getCloudinaryPreviewUrl(profile.idCardUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-indigo-600 hover:underline"
+                className="text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 underline"
               >
                 View →
               </a>
             </div>
           ) : (
-            <p className="text-xs text-slate-400 mb-2">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">
               No ID card uploaded yet
             </p>
           )}
@@ -349,7 +355,7 @@ function DocumentUploadSection({
           />
           <button
             onClick={() => idCardInputRef.current?.click()}
-            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline"
+            className="text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 font-medium underline"
           >
             {idCardFile
               ? `Selected: ${idCardFile.name}`
@@ -360,8 +366,8 @@ function DocumentUploadSection({
         </div>
       </div>
 
-      {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
-      {success && <p className="text-green-600 text-sm mt-3">{success}</p>}
+      {error && <p className="text-red-600 dark:text-red-300 text-sm mt-3">{error}</p>}
+      {success && <p className="text-green-600 dark:text-green-300 text-sm mt-3">{success}</p>}
 
       {(resumeFile || idCardFile) && (
         <div className="mt-4">
@@ -562,7 +568,7 @@ export default function InterviewerDashboardPage() {
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Loading your dashboard…</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading your dashboard…</p>
         </div>
       </div>
     );
@@ -578,7 +584,10 @@ export default function InterviewerDashboardPage() {
           userInitials={userInitials}
           onPhotoUpdated={fetchProfile}
         />
-        <Card variant="elevated" className="p-6 sm:p-8 text-center mb-4">
+        <Card
+          variant="elevated"
+          className="theme-surface-card p-6 sm:p-8 text-center mb-4 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
+        >
           <div className="text-5xl sm:text-6xl mb-4">⏳</div>
           <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900 dark:text-white mb-2">
             Profile Under Review
@@ -615,7 +624,10 @@ export default function InterviewerDashboardPage() {
           userInitials={userInitials}
           onPhotoUpdated={fetchProfile}
         />
-        <Card variant="elevated" className="p-6 sm:p-8 text-center">
+        <Card
+          variant="elevated"
+          className="theme-surface-card p-6 sm:p-8 text-center bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
+        >
           <div className="text-5xl sm:text-6xl mb-4">❌</div>
           <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900 dark:text-white mb-2">
             Profile Not Approved
@@ -640,7 +652,10 @@ export default function InterviewerDashboardPage() {
       />
 
       {/* Profile Card */}
-      <Card variant="elevated" className="p-4 sm:p-6 mb-4 sm:mb-6">
+      <Card
+        variant="elevated"
+        className="theme-surface-card p-4 sm:p-6 mb-4 sm:mb-6 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
+      >
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-2xl font-display font-semibold text-slate-900 dark:text-white">
             Your Profile
@@ -720,7 +735,7 @@ export default function InterviewerDashboardPage() {
                     className={`px-3 sm:px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all ${
                       formData.difficultyLevels.includes(level)
                         ? "bg-indigo-600 text-white border-indigo-600"
-                        : "bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 border-indigo-300 hover:border-indigo-500"
+                        : "bg-white dark:bg-slate-900/80 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-400/20 hover:border-indigo-500"
                     }`}
                   >
                     {level}
@@ -743,7 +758,7 @@ export default function InterviewerDashboardPage() {
                     className={`px-3 sm:px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all ${
                       formData.sessionTypesOffered.includes(type)
                         ? "bg-violet-600 text-white border-violet-600"
-                        : "bg-white dark:bg-gray-800 text-violet-700 dark:text-violet-300 border-violet-300 hover:border-violet-500"
+                        : "bg-white dark:bg-slate-900/80 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-400/20 hover:border-violet-500"
                     }`}
                   >
                     {type}
@@ -768,7 +783,7 @@ export default function InterviewerDashboardPage() {
                         className={`px-3 sm:px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all ${
                           formData.interviewTypesOffered.includes(value)
                             ? "bg-indigo-600 text-white border-indigo-600"
-                            : "bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 border-indigo-300 hover:border-indigo-500"
+                            : "bg-white dark:bg-slate-900/80 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-400/20 hover:border-indigo-500"
                         }`}
                       >
                         {label}
@@ -877,7 +892,7 @@ export default function InterviewerDashboardPage() {
               </div>
             )}
             <div>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
                 LinkedIn
               </p>
               {profile.linkedinUrl ? (

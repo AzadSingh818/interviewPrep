@@ -108,7 +108,7 @@ export default function VerifyEmailPage() {
         } else if (data.user.role === 'INTERVIEWER') {
           router.push('/interviewer/dashboard');
         } else {
-          router.push('/admin/dashboard');
+          router.push('/');
         }
       }, 1500);
 

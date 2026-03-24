@@ -4,7 +4,6 @@ import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
-import { isAdminEmail } from './auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
 
@@ -53,8 +52,7 @@ export const authOptions: AuthOptions = {
           const pendingRole  = cookieStore.get('pending-oauth-role')?.value || 'STUDENT';
           cookieStore.delete('pending-oauth-role');
 
-          let requestedRole = pendingRole;
-          if (isAdminEmail(email)) requestedRole = 'ADMIN';
+          const requestedRole = pendingRole === 'INTERVIEWER' ? 'INTERVIEWER' : 'STUDENT';
 
           console.log('🎯 [jwt] Role from cookie:', requestedRole);
 
@@ -64,7 +62,7 @@ export const authOptions: AuthOptions = {
           if (user) {
             console.log('✅ [jwt] Existing user found:', user.id, 'Role:', user.role);
 
-            const finalRole = isAdminEmail(email) ? 'ADMIN' : requestedRole;
+            const finalRole = user.role === 'ADMIN' ? user.role : requestedRole;
 
             // ─── PHOTO PROTECTION ─────────────────────────────────────────────
             // If the user has uploaded a custom photo (any non-Google URL),
@@ -169,8 +167,6 @@ export const authOptions: AuthOptions = {
 
           if (callbackUrl.includes('INTERVIEWER') || url.includes('INTERVIEWER')) {
             requestedRole = 'INTERVIEWER';
-          } else if (callbackUrl.includes('ADMIN') || url.includes('ADMIN')) {
-            requestedRole = 'ADMIN';
           }
 
           console.log('🎯 [redirect] Detected role:', requestedRole);
@@ -191,7 +187,6 @@ export const authOptions: AuthOptions = {
         }
 
         if (requestedRole === 'INTERVIEWER') return `${baseUrl}/interviewer/dashboard`;
-        if (requestedRole === 'ADMIN')       return `${baseUrl}/admin/dashboard`;
         return `${baseUrl}/student/dashboard`;
       }
 

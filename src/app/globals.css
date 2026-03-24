@@ -13,8 +13,38 @@ body {
 }
 
 /* ── Dark mode overrides ── */
-.dark body {
-  @apply bg-gray-950 text-slate-100;
+html.dark body {
+  @apply bg-[#09111f] text-slate-100;
+}
+
+html.dark .theme-surface-card {
+  background-color: rgb(15 23 42 / 0.92);
+  border-color: rgb(255 255 255 / 0.10);
+}
+
+html.dark .theme-surface-subtle {
+  background-color: rgb(255 255 255 / 0.03);
+  border-color: rgb(255 255 255 / 0.10);
+}
+
+html.dark .theme-surface-muted {
+  background-color: rgb(15 23 42 / 0.72);
+  border-color: rgb(255 255 255 / 0.08);
+}
+
+html.dark .theme-stat-total {
+  background-color: rgb(15 23 42 / 0.92);
+  border-color: rgb(255 255 255 / 0.10);
+}
+
+html.dark .theme-stat-upcoming {
+  background-color: rgb(49 46 129 / 0.25);
+  border-color: rgb(129 140 248 / 0.20);
+}
+
+html.dark .theme-stat-completed {
+  background-color: rgb(6 78 59 / 0.28);
+  border-color: rgb(52 211 153 / 0.18);
 }
 
 .font-sans {
@@ -41,12 +71,12 @@ body {
 }
 
 /* Custom scrollbar — dark */
-.dark ::-webkit-scrollbar-track {
+html.dark ::-webkit-scrollbar-track {
   @apply bg-gray-800;
 }
-.dark ::-webkit-scrollbar-thumb {
+html.dark ::-webkit-scrollbar-thumb {
   @apply bg-gray-600;
 }
-.dark ::-webkit-scrollbar-thumb:hover {
+html.dark ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-500;
 }

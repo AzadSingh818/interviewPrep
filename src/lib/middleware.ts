@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken } from './auth';
 
+function getDashboardPath(role: string) {
+  if (role === 'STUDENT') return '/student/dashboard';
+  if (role === 'INTERVIEWER') return '/interviewer/dashboard';
+  return '/';
+}
+
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth-token')?.value;
   const { pathname } = request.nextUrl;
@@ -11,7 +17,6 @@ export function middleware(request: NextRequest) {
     '/',
     '/login/student',
     '/login/interviewer',
-    '/login/admin',           // ← added
     '/signup/student',
     '/signup/interviewer',
   ];
@@ -22,7 +27,7 @@ export function middleware(request: NextRequest) {
       const payload = verifyToken(token);
       if (payload) {
         if (pathname.startsWith('/login') || pathname.startsWith('/signup') || pathname === '/') {
-          return NextResponse.redirect(new URL(`/${payload.role.toLowerCase()}/dashboard`, request.url));
+          return NextResponse.redirect(new URL(getDashboardPath(payload.role), request.url));
         }
       }
     }
@@ -43,15 +48,11 @@ export function middleware(request: NextRequest) {
 
   // Role-based access control
   if (pathname.startsWith('/student') && payload.role !== 'STUDENT') {
-    return NextResponse.redirect(new URL(`/${payload.role.toLowerCase()}/dashboard`, request.url));
+    return NextResponse.redirect(new URL(getDashboardPath(payload.role), request.url));
   }
 
   if (pathname.startsWith('/interviewer') && payload.role !== 'INTERVIEWER') {
-    return NextResponse.redirect(new URL(`/${payload.role.toLowerCase()}/dashboard`, request.url));
-  }
-
-  if (pathname.startsWith('/admin') && payload.role !== 'ADMIN') {
-    return NextResponse.redirect(new URL(`/${payload.role.toLowerCase()}/dashboard`, request.url));
+    return NextResponse.redirect(new URL(getDashboardPath(payload.role), request.url));
   }
 
   return NextResponse.next();

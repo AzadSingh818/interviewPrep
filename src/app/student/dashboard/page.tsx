@@ -52,16 +52,31 @@ interface Session {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const hiringLabel: Record<string, { text: string; color: string }> = {
-  STRONG_HIRE: { text: "Strong Hire", color: "bg-green-100 text-green-700" },
-  HIRE: { text: "Hire", color: "bg-green-100 text-green-700" },
-  WEAK_HIRE: { text: "Weak Hire", color: "bg-amber-100 text-amber-700" },
-  NO_HIRE: { text: "No Hire", color: "bg-red-100 text-red-700" },
+  STRONG_HIRE: {
+    text: "Strong Hire",
+    color:
+      "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300",
+  },
+  HIRE: {
+    text: "Hire",
+    color:
+      "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300",
+  },
+  WEAK_HIRE: {
+    text: "Weak Hire",
+    color:
+      "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  },
+  NO_HIRE: {
+    text: "No Hire",
+    color: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300",
+  },
 };
 
 function RatingBar({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <div className="flex justify-between text-xs text-slate-600 mb-1">
+      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
         <span>{label}</span>
         <span className="font-semibold text-indigo-600">{value}/5</span>
       </div>
@@ -110,23 +125,23 @@ function SubscriptionCard({ profile }: { profile: Profile }) {
   return (
     <Card
       variant="elevated"
-      className={`p-4 sm:p-6 mb-4 sm:mb-6 ${isPro ? "border-indigo-300 bg-gradient-to-r from-indigo-50 to-violet-50" : "border-slate-200"}`}
+      className={`theme-surface-card p-4 sm:p-6 mb-4 sm:mb-6 ${isPro ? "border-indigo-300 bg-gradient-to-r from-indigo-50 to-violet-50 dark:border-indigo-400/20 dark:from-indigo-500/10 dark:to-violet-500/10" : "border-slate-200 dark:border-white/10"}`}
     >
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span
-              className={`px-3 py-1 rounded-full text-sm font-bold ${isPro ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"}`}
+              className={`px-3 py-1 rounded-full text-sm font-bold ${isPro ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
             >
               {isPro ? "⭐ Pro Plan" : "🆓 Free Plan"}
             </span>
             {isPro && expiryStr && (
-              <span className="text-xs text-indigo-600">
+              <span className="text-xs text-indigo-600 dark:text-indigo-300">
                 Expires {expiryStr}
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-slate-600">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
             {isPro
               ? "10 interviews + 10 guidance sessions per month"
               : "5 free interviews + 5 guidance sessions included"}
@@ -136,13 +151,13 @@ function SubscriptionCard({ profile }: { profile: Profile }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div>
-          <div className="flex justify-between text-xs text-slate-600 mb-1">
+          <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
             <span>Mock Interviews</span>
             <span className="font-medium">
               {profile.interviewsUsed}/{profile.interviewsLimit}
             </span>
           </div>
-          <div className="w-full bg-slate-200 rounded-full h-2">
+          <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${interviewPct >= 100 ? "bg-red-500" : interviewPct >= 80 ? "bg-amber-500" : "bg-indigo-500"}`}
               style={{ width: `${interviewPct}%` }}
@@ -150,13 +165,13 @@ function SubscriptionCard({ profile }: { profile: Profile }) {
           </div>
         </div>
         <div>
-          <div className="flex justify-between text-xs text-slate-600 mb-1">
+          <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
             <span>Guidance Sessions</span>
             <span className="font-medium">
               {profile.guidanceUsed}/{profile.guidanceLimit}
             </span>
           </div>
-          <div className="w-full bg-slate-200 rounded-full h-2">
+          <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${guidancePct >= 100 ? "bg-red-500" : guidancePct >= 80 ? "bg-amber-500" : "bg-violet-500"}`}
               style={{ width: `${guidancePct}%` }}
@@ -166,13 +181,13 @@ function SubscriptionCard({ profile }: { profile: Profile }) {
       </div>
 
       {isNearLimit && !isPro && (
-        <p className="text-xs text-amber-600 mt-3 font-medium">
+        <p className="text-xs text-amber-600 dark:text-amber-300 mt-3 font-medium">
           ⚠️ Almost out of free sessions. Upgrade to Pro from the sidebar to
           keep going.
         </p>
       )}
       {isAtLimit && (
-        <p className="text-xs text-red-600 mt-3 font-medium">
+        <p className="text-xs text-red-600 dark:text-red-300 mt-3 font-medium">
           ⚠️ You've reached your limit.{" "}
           {isPro
             ? "Renew your plan to continue booking."
@@ -216,8 +231,8 @@ function ReadinessCard({
     score < 40 ? "bg-red-400" : score < 70 ? "bg-amber-400" : "bg-green-500";
 
   return (
-    <Card variant="elevated" className="p-4 sm:p-6 mb-4 sm:mb-6">
-      <h3 className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
+    <Card variant="elevated" className="theme-surface-card p-4 sm:p-6 mb-4 sm:mb-6">
+      <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">
         Interview Readiness
       </h3>
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
@@ -225,17 +240,17 @@ function ReadinessCard({
         <div className="shrink-0 text-center sm:text-left">
           <p className={`text-4xl sm:text-5xl font-bold ${scoreColor}`}>
             {score}
-            <span className="text-lg sm:text-xl text-slate-400 font-normal">
+            <span className="text-lg sm:text-xl text-slate-400 dark:text-slate-500 font-normal">
               /100
             </span>
           </p>
-          <div className="w-32 sm:w-36 bg-slate-200 rounded-full h-2 mt-3 mx-auto sm:mx-0">
+          <div className="w-32 sm:w-36 bg-slate-200 dark:bg-slate-800 rounded-full h-2 mt-3 mx-auto sm:mx-0">
             <div
               className={`h-2 rounded-full transition-all duration-700 ${barColor}`}
               style={{ width: `${score}%` }}
             />
           </div>
-          <p className="text-xs text-slate-400 mt-2">
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
             {score < 40
               ? "Getting started"
               : score < 70
@@ -251,14 +266,14 @@ function ReadinessCard({
               <span
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${
                   c.done
-                    ? "bg-green-100 text-green-600"
-                    : "bg-slate-100 text-slate-400 border border-slate-300"
+                    ? "bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-300"
+                    : "bg-slate-100 text-slate-400 border border-slate-300 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700"
                 }`}
               >
                 {c.done ? "✓" : "○"}
               </span>
               <span
-                className={`text-sm ${c.done ? "text-slate-800 font-medium" : "text-slate-500"}`}
+                className={`text-sm ${c.done ? "text-slate-800 dark:text-slate-200 font-medium" : "text-slate-500 dark:text-slate-400"}`}
               >
                 {c.label}
               </span>
@@ -285,14 +300,14 @@ function NextActionBanner({
 
   if (isAtLimit && profile.planType === "FREE") {
     return (
-      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3 dark:bg-red-500/10 dark:border-red-400/20">
         <div className="flex items-center gap-3">
           <span className="text-xl sm:text-2xl">🚫</span>
           <div>
-            <p className="text-sm font-semibold text-red-800">
+            <p className="text-sm font-semibold text-red-800 dark:text-red-200">
               You've used all your free sessions
             </p>
-            <p className="text-xs text-red-600 mt-0.5">
+            <p className="text-xs text-red-600 dark:text-red-300 mt-0.5">
               Upgrade to Pro from the sidebar to continue.
             </p>
           </div>
@@ -302,9 +317,9 @@ function NextActionBanner({
   }
   if (!profile.resumeUrl) {
     return (
-      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start sm:items-center gap-3">
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start sm:items-center gap-3 dark:bg-amber-500/10 dark:border-amber-400/20">
         <span className="text-xl sm:text-2xl shrink-0">📄</span>
-        <p className="text-xs sm:text-sm text-amber-800">
+        <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-200">
           <span className="font-semibold">Upload your resume</span> so
           interviewers can give personalised feedback.{" "}
           <a href="#resume" className="underline font-semibold">
@@ -316,9 +331,9 @@ function NextActionBanner({
   }
   if (sessions.length === 0) {
     return (
-      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-start sm:items-center gap-3">
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-start sm:items-center gap-3 dark:bg-indigo-500/10 dark:border-indigo-400/20">
         <span className="text-xl sm:text-2xl shrink-0">🚀</span>
-        <p className="text-xs sm:text-sm text-indigo-800">
+        <p className="text-xs sm:text-sm text-indigo-800 dark:text-indigo-200">
           <span className="font-semibold">You're all set!</span> Book your first
           free mock interview or guidance session below.
         </p>
@@ -337,9 +352,9 @@ function RecentFeedbackCard({ sessions }: { sessions: Session[] }) {
   if (withFeedback.length === 0) return null;
 
   return (
-    <Card variant="elevated" className="p-4 sm:p-6 mb-4 sm:mb-6">
+    <Card variant="elevated" className="theme-surface-card p-4 sm:p-6 mb-4 sm:mb-6">
       <div className="flex justify-between items-center mb-3 sm:mb-4">
-        <h3 className="text-sm sm:text-base font-semibold text-slate-900">
+        <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
           Recent Feedback
         </h3>
         <Link href="/student/sessions">
@@ -360,14 +375,14 @@ function RecentFeedbackCard({ sessions }: { sessions: Session[] }) {
           return (
             <div
               key={s.id}
-              className="p-3 sm:p-4 bg-slate-50 rounded-xl border border-slate-200"
+              className="theme-surface-subtle p-3 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sm:mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm sm:text-base">
                     {isInterview ? "💼" : "🎓"}
                   </span>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-900 leading-snug">
+                  <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white leading-snug">
                     {isInterview
                       ? `Mock Interview${s.role ? ` — ${s.role}` : ""}`
                       : `Guidance${s.topic ? ` — ${s.topic}` : ""}`}
@@ -381,7 +396,7 @@ function RecentFeedbackCard({ sessions }: { sessions: Session[] }) {
                       {rec.text}
                     </span>
                   )}
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
                     {new Date(s.scheduledTime).toLocaleDateString("en-IN", {
                       day: "numeric",
                       month: "short",
@@ -418,7 +433,7 @@ function RecentFeedbackCard({ sessions }: { sessions: Session[] }) {
                 )}
 
               {(f.summary || f.strengths) && (
-                <p className="text-xs sm:text-sm text-slate-600 line-clamp-2 mb-2">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mb-2">
                   {f.summary || f.strengths}
                 </p>
               )}
@@ -453,13 +468,13 @@ function ProfileCompletionBar({ profile }: { profile: Profile }) {
   if (pct === 100) return null;
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 mb-4 sm:mb-5">
+    <div className="theme-surface-subtle flex items-center gap-3 p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 mb-4 sm:mb-5">
       <div className="flex-1">
-        <div className="flex justify-between text-xs text-slate-600 mb-1.5">
+        <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1.5">
           <span className="font-medium">Profile completion</span>
           <span className="text-indigo-600 font-semibold">{pct}%</span>
         </div>
-        <div className="w-full bg-slate-200 rounded-full h-1.5">
+        <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
           <div
             className="h-1.5 bg-indigo-500 rounded-full transition-all duration-500"
             style={{ width: `${pct}%` }}
@@ -479,7 +494,7 @@ export default function StudentDashboardPage() {
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-500 text-sm">Loading your dashboard…</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Loading your dashboard…</p>
           </div>
         </div>
       }
@@ -648,7 +663,7 @@ function DashboardInner() {
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Loading your dashboard…</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading your dashboard…</p>
         </div>
       </div>
     );
@@ -664,11 +679,11 @@ function DashboardInner() {
         <div className="flex items-center gap-3 mb-6 sm:mb-8">
           <button
             onClick={() => setShowUpgrade(false)}
-            className="text-slate-500 hover:text-slate-700 text-sm"
+            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm"
           >
             ← Back to Dashboard
           </button>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             Upgrade to Pro
           </h1>
         </div>
@@ -697,9 +712,9 @@ function DashboardInner() {
       </div>
 
       {/* ── Profile Section ── */}
-      <Card variant="elevated" className="p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
+      <Card variant="elevated" className="theme-surface-card p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg sm:text-2xl font-display font-semibold text-slate-900">
+          <h2 className="text-lg sm:text-2xl font-display font-semibold text-slate-900 dark:text-white">
             Your Profile
           </h2>
         </div>
@@ -784,10 +799,10 @@ function DashboardInner() {
             ].map(({ label, value }) => (
               <div
                 key={label}
-                className="p-3 bg-slate-50 rounded-xl border border-slate-100"
+                className="theme-surface-subtle p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/10"
               >
-                <p className="text-xs text-slate-500 mb-1">{label}</p>
-                <p className="font-semibold text-slate-900 text-sm break-words">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</p>
+                <p className="font-semibold text-slate-900 dark:text-white text-sm break-words">
                   {value || (
                     <span className="text-slate-400 italic font-normal">
                       Not set
@@ -803,13 +818,13 @@ function DashboardInner() {
         {profile && (
           <div
             id="resume"
-            className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-slate-200"
+            className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-slate-200 dark:border-white/10"
           >
-            <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
               Resume
             </h3>
             {profile.resumeUrl ? (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-500/10 dark:to-emerald-500/10 border-2 border-green-200 dark:border-green-400/20 rounded-xl">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-xl flex items-center justify-center text-white shrink-0">
                     <svg
@@ -827,10 +842,10 @@ function DashboardInner() {
                     </svg>
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-900 text-sm">
+                    <p className="font-semibold text-slate-900 dark:text-white text-sm">
                       Resume uploaded ✅
                     </p>
-                    <p className="text-xs sm:text-sm text-slate-600 truncate">
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 truncate">
                       {getResumeFileName(profile.resumeUrl)}
                     </p>
                   </div>
@@ -853,7 +868,7 @@ function DashboardInner() {
                         );
                       }
                     }}
-                    className="flex-1 sm:flex-none text-center px-3 sm:px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-xs sm:text-sm font-medium"
+                    className="flex-1 sm:flex-none text-center px-3 sm:px-4 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs sm:text-sm font-medium"
                   >
                     View
                   </a>
@@ -866,8 +881,8 @@ function DashboardInner() {
                 </div>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 sm:p-8 text-center hover:border-indigo-400 transition-colors">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="border-2 border-dashed border-slate-300 dark:border-white/15 rounded-xl p-6 sm:p-8 text-center hover:border-indigo-400 dark:hover:border-indigo-400/40 transition-colors">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-100 dark:bg-indigo-500/15 rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg
                     className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600"
                     fill="none"
@@ -882,10 +897,10 @@ function DashboardInner() {
                     />
                   </svg>
                 </div>
-                <h4 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">
+                <h4 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white mb-1">
                   Upload your resume
                 </h4>
-                <p className="text-xs sm:text-sm text-slate-500 mb-4">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-4">
                   PDF, DOC, or DOCX · Max 5MB
                 </p>
                 <input
@@ -927,7 +942,7 @@ function DashboardInner() {
                   )}
                 </Button>
                 {resumeError && (
-                  <p className="text-xs sm:text-sm text-red-600 mt-2">
+                  <p className="text-xs sm:text-sm text-red-600 dark:text-red-300 mt-2">
                     {resumeError}
                   </p>
                 )}
@@ -948,42 +963,42 @@ function DashboardInner() {
 
       {/* ── Quick Stats ── */}
       <div className="grid grid-cols-3 gap-2 sm:gap-5 mb-4 sm:mb-6">
-        <Card variant="bordered" className="p-3 sm:p-5">
+        <Card variant="bordered" className="theme-surface-card p-3 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-base sm:text-lg shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-100 dark:bg-indigo-500/15 rounded-xl flex items-center justify-center text-base sm:text-lg shrink-0">
               📅
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-bold text-indigo-600">
                 {upcomingSessions.length}
               </div>
-              <p className="text-slate-600 text-xs sm:text-sm">Upcoming</p>
+              <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">Upcoming</p>
             </div>
           </div>
         </Card>
-        <Card variant="bordered" className="p-3 sm:p-5">
+        <Card variant="bordered" className="theme-surface-card p-3 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-xl flex items-center justify-center text-base sm:text-lg shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 dark:bg-green-500/15 rounded-xl flex items-center justify-center text-base sm:text-lg shrink-0">
               ✅
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-bold text-green-600">
                 {completedSessions.length}
               </div>
-              <p className="text-slate-600 text-xs sm:text-sm">Completed</p>
+              <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">Completed</p>
             </div>
           </div>
         </Card>
-        <Card variant="bordered" className="p-3 sm:p-5">
+        <Card variant="bordered" className="theme-surface-card p-3 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-violet-100 rounded-xl flex items-center justify-center text-base sm:text-lg shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-violet-100 dark:bg-violet-500/15 rounded-xl flex items-center justify-center text-base sm:text-lg shrink-0">
               🗂️
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-bold text-violet-600">
                 {sessions.length}
               </div>
-              <p className="text-slate-600 text-xs sm:text-sm">Total</p>
+              <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">Total</p>
             </div>
           </div>
         </Card>
@@ -993,18 +1008,18 @@ function DashboardInner() {
       <RecentFeedbackCard sessions={sessions} />
 
       {/* ── Quick Actions ── */}
-      <Card variant="elevated" className="p-4 sm:p-6 lg:p-8">
-        <h2 className="text-lg sm:text-2xl font-display font-semibold text-slate-900 mb-4 sm:mb-5">
+      <Card variant="elevated" className="theme-surface-card p-4 sm:p-6 lg:p-8">
+        <h2 className="text-lg sm:text-2xl font-display font-semibold text-slate-900 dark:text-white mb-4 sm:mb-5">
           Quick Actions
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <Link href="/student/book-guidance">
-            <div className="p-4 sm:p-6 bg-gradient-to-br from-indigo-50 to-violet-50 border-2 border-indigo-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
+            <div className="p-4 sm:p-6 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-500/10 dark:to-violet-500/10 border-2 border-indigo-200 dark:border-indigo-400/20 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
               <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">🎓</div>
-              <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-1 text-sm sm:text-base">
                 Book Guidance Session
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                 Get mentorship from industry experts
               </p>
               {profile && (
@@ -1017,12 +1032,12 @@ function DashboardInner() {
           </Link>
 
           <Link href="/student/book-interview">
-            <div className="p-4 sm:p-6 bg-gradient-to-br from-violet-50 to-pink-50 border-2 border-violet-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
+            <div className="p-4 sm:p-6 bg-gradient-to-br from-violet-50 to-pink-50 dark:from-violet-500/10 dark:to-pink-500/10 border-2 border-violet-200 dark:border-violet-400/20 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
               <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">💼</div>
-              <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-1 text-sm sm:text-base">
                 Book Mock Interview
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                 Practice with realistic interview scenarios
               </p>
               {profile && (
@@ -1035,12 +1050,12 @@ function DashboardInner() {
           </Link>
 
           <Link href="/student/sessions">
-            <div className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
+            <div className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-500/10 dark:to-emerald-500/10 border-2 border-green-200 dark:border-green-400/20 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
               <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">📅</div>
-              <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-1 text-sm sm:text-base">
                 My Sessions
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                 View your complete session history
               </p>
               {sessions.length > 0 && (
@@ -1053,26 +1068,26 @@ function DashboardInner() {
           </Link>
 
           <Link href="/student/coding">
-            <div className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
+            <div className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-emerald-500/10 dark:to-teal-500/10 border-2 border-green-200 dark:border-emerald-400/20 rounded-xl hover:shadow-lg transition-all cursor-pointer group">
               <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">💻</div>
-              <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-1 text-sm sm:text-base">
                 Coding Practice
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                 Solve C, C++ and SQL challenges
               </p>
             </div>
           </Link>
 
           <div
-            className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-200 rounded-xl hover:shadow-lg transition-all cursor-pointer group"
+            className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.03] border-2 border-slate-200 dark:border-white/10 rounded-xl hover:shadow-lg transition-all cursor-pointer group"
             onClick={() => setShowUpgrade(true)}
           >
             <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">⭐</div>
-            <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-1 text-sm sm:text-base">
               Upgrade to Pro
             </h3>
-            <p className="text-xs sm:text-sm text-slate-600">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
               Unlock more sessions &amp; priority mentors
             </p>
             <p className="text-xs text-indigo-600 mt-2 font-semibold">

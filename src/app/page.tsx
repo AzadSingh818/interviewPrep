@@ -35,7 +35,7 @@ export default function HomePage() {
     {
       icon: '🔒',
       title: 'Verified Interviewers',
-      desc: 'Every interviewer is vetted by our admin team. Credentials and documents are verified before approval.',
+      desc: 'Every interviewer is vetted before approval so students can book with confidence.',
     },
   ];
 
@@ -73,11 +73,6 @@ export default function HomePage() {
                 Interviewer Login
               </button>
             </Link>
-            <Link href="/login/admin">
-              <button className="px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/30 rounded-xl transition-all">
-                🛡️ Admin
-              </button>
-            </Link>
             <Link href="/signup/student">
               <button className="ml-2 px-5 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all">
                 Get Started
@@ -113,11 +108,6 @@ export default function HomePage() {
             <Link href="/login/interviewer" onClick={() => setMobileMenuOpen(false)}>
               <button className="w-full text-left px-4 py-3 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all">
                 👔 Interviewer Login
-              </button>
-            </Link>
-            <Link href="/login/admin" onClick={() => setMobileMenuOpen(false)}>
-              <button className="w-full text-left px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/20 rounded-xl transition-all">
-                🛡️ Admin Login
               </button>
             </Link>
             <div className="pt-2 border-t border-white/10 grid grid-cols-2 gap-2">
@@ -318,7 +308,6 @@ export default function HomePage() {
           <div className="flex gap-4">
             <Link href="/login/student" className="hover:text-white transition-colors">Students</Link>
             <Link href="/signup/interviewer" className="hover:text-white transition-colors">Interviewers</Link>
-            <Link href="/login/admin" className="hover:text-white transition-colors">Admin</Link>
           </div>
         </div>
       </footer>

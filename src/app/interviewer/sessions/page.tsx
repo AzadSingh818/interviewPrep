@@ -56,7 +56,7 @@ export default function InterviewerSessionsPage() {
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Loading sessions…</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading sessions…</p>
         </div>
       </div>
     );
@@ -70,8 +70,8 @@ export default function InterviewerSessionsPage() {
 
       {/* Pending feedback alert */}
       {pastScheduled.filter((s) => !s.feedback).length > 0 && (
-        <div className="mb-6 p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <p className="text-amber-900 font-medium text-sm sm:text-base">
+        <div className="mb-6 p-3 sm:p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-400/20 rounded-xl">
+          <p className="text-amber-900 dark:text-amber-200 font-medium text-sm sm:text-base">
             ⚠️ You have {pastScheduled.filter((s) => !s.feedback).length}{" "}
             session(s) pending feedback submission
           </p>
@@ -84,17 +84,20 @@ export default function InterviewerSessionsPage() {
           {
             label: "Total",
             value: sessions.length,
-            color: "bg-slate-50 dark:bg-gray-800",
+            color:
+              "theme-stat-total bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10",
           },
           {
             label: "Upcoming",
             value: upcomingSessions.length,
-            color: "bg-indigo-50 dark:bg-indigo-900/20",
+            color:
+              "theme-stat-upcoming bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-400/20",
           },
           {
             label: "Completed",
             value: completedSessions.length,
-            color: "bg-green-50 dark:bg-green-900/20",
+            color:
+              "theme-stat-completed bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-400/20",
           },
         ].map((stat) => (
           <div
@@ -119,7 +122,7 @@ export default function InterviewerSessionsPage() {
         {upcomingSessions.length === 0 ? (
           <Card
             variant="bordered"
-            className="p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400"
+            className="theme-surface-card p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
           >
             No upcoming sessions scheduled.
           </Card>
@@ -131,7 +134,7 @@ export default function InterviewerSessionsPage() {
                 <Card
                   key={session.id}
                   variant="elevated"
-                  className="p-4 sm:p-6"
+                  className="theme-surface-card p-4 sm:p-6 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
                 >
                   {/* Header row */}
                   <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
@@ -182,8 +185,8 @@ export default function InterviewerSessionsPage() {
                       disabled={!roomOpen}
                       className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                         roomOpen
-                          ? "bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-200"
-                          : "bg-slate-100 dark:bg-gray-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                          ? "bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-200 dark:shadow-amber-900/20"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                       }`}
                     >
                       <svg
@@ -235,7 +238,7 @@ export default function InterviewerSessionsPage() {
               <Card
                 key={session.id}
                 variant="elevated"
-                className="p-4 sm:p-6 border-l-4 border-amber-400"
+                className="theme-surface-card p-4 sm:p-6 border border-slate-200 dark:border-white/10 border-l-4 border-l-amber-400 bg-white dark:bg-slate-900/92"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -297,14 +300,18 @@ export default function InterviewerSessionsPage() {
         {completedSessions.length === 0 ? (
           <Card
             variant="bordered"
-            className="p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400"
+            className="theme-surface-card p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
           >
             No completed sessions yet.
           </Card>
         ) : (
           <div className="space-y-3 sm:space-y-4">
             {completedSessions.map((session) => (
-              <Card key={session.id} variant="elevated" className="p-4 sm:p-6">
+              <Card
+                key={session.id}
+                variant="elevated"
+                className="theme-surface-card p-4 sm:p-6 bg-white dark:bg-slate-900/92 border border-slate-200 dark:border-white/10"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -348,7 +355,7 @@ export default function InterviewerSessionsPage() {
                     )}
                     {session.feedback && (
                       <Link href={`/interviewer/feedback/${session.id}`}>
-                        <button className="shrink-0 px-3 sm:px-4 py-2 bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-600 transition-colors text-xs sm:text-sm font-medium">
+                        <button className="shrink-0 px-3 sm:px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xs sm:text-sm font-medium">
                           View Feedback
                         </button>
                       </Link>

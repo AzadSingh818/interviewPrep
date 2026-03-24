@@ -453,7 +453,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
   ];
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-violet-950 transition-colors duration-200">
+    <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-[#09111f] dark:via-[#0b1324] dark:to-[#1a1b3a] transition-colors duration-200">
 
       {/* ── Backdrop overlay (when sidebar is open) ── */}
       {sidebarOpen && (
@@ -466,13 +466,13 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
       {/* ══════════════════════════════════════════════
           NARROW ICON STRIP — always visible on left
       ══════════════════════════════════════════════ */}
-      <div className="fixed top-0 left-0 h-full w-14 bg-white dark:bg-gray-900 border-r border-slate-100 dark:border-gray-800 flex flex-col items-center py-3 z-50 shrink-0">
+      <div className="fixed top-0 left-0 h-full w-14 bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-white/10 flex flex-col items-center py-3 z-50 shrink-0">
 
         {/* Expand icon */}
         <button
           onClick={() => setSidebarOpen(true)}
           title="Open sidebar"
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors mb-4"
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors mb-4"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M4 6h16M4 12h16M4 18h16"/>
@@ -490,7 +490,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
                 title={item.name}
                 onClick={() => { if (isSettings) { setSettingsOpen(true); } }}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors text-base
-                  ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800'}`}
+                  ${isActive ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}
               >
                 {item.icon}
               </button>
@@ -499,7 +499,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
             return (
               <Link key={item.href} href={item.href} title={item.name}>
                 <div className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors text-base
-                  ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800'}`}>
+                  ${isActive ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}>
                   {item.icon}
                 </div>
               </Link>
@@ -512,7 +512,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           <button
             onClick={handleLogout}
             title="Logout"
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-700 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -521,7 +521,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           <button
             onClick={() => setSidebarOpen(true)}
             title={displayName}
-            className="relative w-9 h-9 rounded-full overflow-hidden ring-2 ring-slate-200 dark:ring-gray-700 hover:ring-indigo-400 transition-all"
+            className="relative w-9 h-9 rounded-full overflow-hidden ring-2 ring-slate-200 dark:ring-white/10 hover:ring-indigo-400 transition-all"
           >
             {user?.profilePicture ? (
               <Image src={user.profilePicture} alt={displayName} width={36} height={36} className="object-cover w-full h-full" />
@@ -538,11 +538,11 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           FULL SIDEBAR DRAWER — slides in over strip
       ══════════════════════════════════════════════ */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-gray-900 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden
+        className={`fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/10 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* ── Logo ── */}
-        <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-gray-800">
+        <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/10">
           <Link href="/interviewer/dashboard" className="flex items-center gap-2.5" onClick={() => setSidebarOpen(false)}>
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg shrink-0" />
             <span className="text-[15px] font-bold text-slate-900 dark:text-white">
@@ -551,7 +551,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors text-lg font-bold"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-lg font-bold"
           >
             ✕
           </button>
@@ -568,8 +568,8 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
                 onClick={() => setSidebarOpen(false)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13.5px] font-medium group mb-0.5
                   ${isActive
-                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                    : 'text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                   }`}
               >
                 <span className="shrink-0">{item.icon}</span>
@@ -581,18 +581,18 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           {/* Settings button */}
           <button
             onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13.5px] font-medium text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-white group"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13.5px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white group"
           >
             <span className="shrink-0">⚙️</span>
             Settings
           </button>
 
-          <div className="my-3 border-t border-slate-100 dark:border-gray-800" />
+          <div className="my-3 border-t border-slate-100 dark:border-white/10" />
 
           {/* Status badge */}
           {profile && (
             <div className="px-3 py-2 mb-2">
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Status</p>
+              <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Status</p>
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold ${
                 profile.status === 'APPROVED'
                   ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
@@ -620,7 +620,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
         </div>
 
         {/* ── Bottom: User info ── */}
-        <div className="shrink-0 border-t border-slate-100 dark:border-gray-800 px-4 py-3">
+        <div className="shrink-0 border-t border-slate-100 dark:border-white/10 px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               {user?.profilePicture ? (
@@ -643,12 +643,12 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-slate-900 dark:text-white truncate">{displayName}</p>
-              <p className="text-[11px] text-slate-500 dark:text-gray-500 truncate">{user?.email}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
             </div>
             <button
               onClick={handleLogout}
               title="Logout"
-              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -662,7 +662,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
       <main className="flex-1 ml-14 min-h-screen flex flex-col">
 
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-slate-100 dark:border-gray-800">
+        <header className="sticky top-0 z-30 bg-white/85 dark:bg-slate-950/80 backdrop-blur border-b border-slate-100 dark:border-white/10">
           <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
             {/* Logo — visible at top always */}
             <Link href="/interviewer/dashboard" className="flex items-center gap-2">

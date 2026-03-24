@@ -48,7 +48,7 @@ export default function StudentSessionsPage() {
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">Loading sessions</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading sessions</p>
         </div>
       </div>
     );
@@ -56,18 +56,18 @@ export default function StudentSessionsPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 mb-6 sm:mb-8">
+      <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white mb-6 sm:mb-8">
         My Sessions
       </h1>
 
       <div className="mb-8 sm:mb-12">
-        <h2 className="text-lg sm:text-2xl font-semibold text-slate-900 mb-3 sm:mb-4">
+        <h2 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
           Upcoming Sessions{' '}
           <span className="text-slate-400 font-normal text-base">({upcomingSessions.length})</span>
         </h2>
 
         {upcomingSessions.length === 0 ? (
-          <Card variant="bordered" className="p-6 sm:p-8 text-center text-slate-600 text-sm sm:text-base">
+          <Card variant="bordered" className="theme-surface-card p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 text-sm sm:text-base">
             No upcoming sessions. Book a session to get started!
           </Card>
         ) : (
@@ -80,7 +80,7 @@ export default function StudentSessionsPage() {
                 : `/student/interview-room/${session.id}`;
 
               return (
-                <Card key={session.id} variant="bordered" className="p-4 sm:p-6">
+                <Card key={session.id} variant="bordered" className="theme-surface-card p-4 sm:p-6">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -93,7 +93,7 @@ export default function StudentSessionsPage() {
                         >
                           {isGuidance ? "🎓 Guidance" : "💼 Interview"}
                         </span>
-                        <span className="text-xs sm:text-sm text-slate-500">
+                        <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                           {session.durationMinutes} min
                         </span>
                         {roomOpen && (
@@ -104,14 +104,14 @@ export default function StudentSessionsPage() {
                         )}
                       </div>
 
-                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1 leading-snug">
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-1 leading-snug">
                         {isGuidance ? session.topic : session.role}
                       </h3>
-                      <p className="text-sm text-slate-600 mb-1">
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">
                         with{" "}
                         <span className="font-medium">{session.interviewer.name}</span>
                       </p>
-                      <p className="text-xs sm:text-sm text-slate-500">
+                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                         📅 {formatDateTime(session.scheduledTime)}
                       </p>
                     </div>
@@ -137,7 +137,7 @@ export default function StudentSessionsPage() {
                             ? isGuidance
                               ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200 hover:scale-105 active:scale-95"
                               : "bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-200 hover:scale-105 active:scale-95"
-                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                            : "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
                         }`}
                       >
                         <svg
@@ -163,7 +163,7 @@ export default function StudentSessionsPage() {
                         )}
                       </button>
                       {!roomOpen && (
-                        <p className="text-xs text-slate-400 text-center sm:text-right">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 text-center sm:text-right">
                           Opens 30 mins before
                         </p>
                       )}
@@ -178,19 +178,19 @@ export default function StudentSessionsPage() {
 
       {/* Past Sessions */}
       <div>
-        <h2 className="text-lg sm:text-2xl font-semibold text-slate-900 mb-3 sm:mb-4">
+        <h2 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
           Past Sessions{' '}
           <span className="text-slate-400 font-normal text-base">({pastSessions.length})</span>
         </h2>
 
         {pastSessions.length === 0 ? (
-          <Card variant="bordered" className="p-6 sm:p-8 text-center text-slate-600 text-sm sm:text-base">
+          <Card variant="bordered" className="theme-surface-card p-6 sm:p-8 text-center text-slate-600 dark:text-slate-400 text-sm sm:text-base">
             No past sessions yet.
           </Card>
         ) : (
           <div className="space-y-3 sm:space-y-4">
             {pastSessions.map((session) => (
-              <Card key={session.id} variant="bordered" className="p-4 sm:p-6">
+              <Card key={session.id} variant="bordered" className="theme-surface-card p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -210,14 +210,14 @@ export default function StudentSessionsPage() {
                       )}
                     </div>
 
-                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1 leading-snug">
+                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-1 leading-snug">
                       {session.sessionType === "GUIDANCE" ? session.topic : session.role}
                     </h3>
-                    <p className="text-sm text-slate-600 mb-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">
                       with{" "}
                       <span className="font-medium">{session.interviewer.name}</span>
                     </p>
-                    <p className="text-xs sm:text-sm text-slate-500">
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                       📅 {formatDateTime(session.scheduledTime)}
                     </p>
                   </div>

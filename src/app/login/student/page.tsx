@@ -47,8 +47,9 @@ export default function StudentLoginPage() {
         router.push('/student/dashboard');
       } else if (data.user.role === 'INTERVIEWER') {
         router.push('/interviewer/dashboard');
-      } else if (data.user.role === 'ADMIN') {
-        router.push('/admin/dashboard');
+      } else {
+        setError('This app supports student and interviewer access only');
+        setLoading(false);
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -72,29 +73,29 @@ export default function StudentLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-[#09111f] dark:via-slate-950 dark:to-[#101936] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl" />
-            <span className="text-2xl font-display font-bold text-slate-900">
+            <span className="text-2xl font-display font-bold text-slate-900 dark:text-white">
               InterviewPrep<span className="text-indigo-600">Live</span>
             </span>
           </Link>
-          <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">
+          <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">
             Welcome Back!
           </h1>
-          <p className="text-slate-600">
+          <p className="text-slate-600 dark:text-slate-400">
             Sign in to continue your journey
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8">
+        <div className="theme-surface-card bg-white rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-white/10 p-8">
           {/* Google Sign-In Button */}
           <button
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-slate-200 rounded-xl hover:bg-slate-50 transition-all mb-6 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all mb-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -114,17 +115,17 @@ export default function StudentLoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span className="font-medium text-slate-700">
+            <span className="font-medium text-slate-700 dark:text-slate-200">
               {googleLoading ? 'Signing in...' : 'Continue with Google'}
             </span>
           </button>
 
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200"></div>
+              <div className="w-full border-t border-slate-200 dark:border-white/10"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-slate-500">Or continue with</span>
+              <span className="px-4 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">Or continue with</span>
             </div>
           </div>
 
@@ -151,7 +152,7 @@ export default function StudentLoginPage() {
             />
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+              <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-400/20 rounded-xl p-3 text-sm text-red-600 dark:text-red-300">
                 {error}
               </div>
             )}
@@ -166,9 +167,9 @@ export default function StudentLoginPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-slate-600">
+            <p className="text-slate-600 dark:text-slate-400">
               Don't have an account?{' '}
-              <Link href="/signup/student" className="text-indigo-600 hover:text-indigo-700 font-medium">
+              <Link href="/signup/student" className="text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium">
                 Sign up
               </Link>
             </p>

@@ -225,7 +225,7 @@ export function UsageBanner({ planType, used, limit, sessionType, planExpiresAt 
     : null;
 
   return (
-    <div className={`rounded-xl p-4 mb-6 border ${
+    <div className={`theme-surface-card rounded-xl p-4 mb-6 border ${
       isLow
         ? 'bg-amber-50 border-amber-200'
         : planType === 'PRO'
@@ -241,13 +241,13 @@ export function UsageBanner({ planType, used, limit, sessionType, planExpiresAt 
           }`}>
             {planType === 'PRO' ? '⭐ Pro' : 'Free'}
           </span>
-          <span className="text-sm text-slate-700">
+          <span className="text-sm text-slate-700 dark:text-slate-200">
             <strong>{remaining}</strong> {sessionLabel} remaining
           </span>
         </div>
-        <span className="text-xs text-slate-500">{used}/{limit} used</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">{used}/{limit} used</span>
       </div>
-      <div className="w-full bg-white rounded-full h-2 border border-slate-200">
+      <div className="w-full bg-white dark:bg-slate-950/70 rounded-full h-2 border border-slate-200 dark:border-white/10">
         <div
           className={`h-2 rounded-full transition-all ${
             isLow ? 'bg-amber-500' : 'bg-indigo-500'

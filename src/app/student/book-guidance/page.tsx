@@ -39,7 +39,7 @@ function TopicSelector({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">
+      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
         Topic <span className="text-red-500">*</span>
       </label>
 
@@ -47,9 +47,9 @@ function TopicSelector({
         value={selectedOption}
         onChange={(e) => onOptionChange(e.target.value)}
         required={selectedOption !== 'Other'}
-        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
+        className="w-full px-3 py-2 border border-slate-300 dark:border-white/10 rounded-lg text-sm
                    focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-400
-                   bg-white text-slate-800"
+                   bg-white dark:bg-slate-900/80 text-slate-800 dark:text-slate-100"
       >
         <option value="" disabled>Select a topic</option>
         {GUIDANCE_TOPICS.map((topic) => (
@@ -66,12 +66,12 @@ function TopicSelector({
             onChange={(e) => onCustomChange(e.target.value)}
             autoFocus
             required
-            className="w-full px-3 py-2 border border-indigo-300 rounded-lg text-sm
+            className="w-full px-3 py-2 border border-indigo-300 dark:border-indigo-400/30 rounded-lg text-sm
                        focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-400
-                       placeholder:text-slate-400"
+                       placeholder:text-slate-400 dark:bg-slate-900/80 dark:text-slate-100"
           />
           {!customText.trim() && (
-            <p className="text-xs text-amber-600 mt-1">Please describe your topic above.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">Please describe your topic above.</p>
           )}
         </div>
       )}
@@ -93,10 +93,10 @@ function StarDisplay({ rating, totalRatings }: { rating: number | null; totalRat
       <div className="flex items-center gap-1.5 mt-1.5">
         <div className="flex gap-0.5">
           {[1, 2, 3, 4, 5].map((star) => (
-            <span key={star} className="text-sm text-slate-300">★</span>
+            <span key={star} className="text-sm text-slate-300 dark:text-slate-600">★</span>
           ))}
         </div>
-        <span className="text-xs text-slate-400">No ratings yet</span>
+        <span className="text-xs text-slate-400 dark:text-slate-500">No ratings yet</span>
       </div>
     );
   }
@@ -204,15 +204,15 @@ function BookingForm({
   };
 
   return (
-    <Card variant="elevated" className="p-4 sm:p-6 lg:sticky lg:top-8">
-      <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4">Session Details</h2>
+    <Card variant="elevated" className="theme-surface-card p-4 sm:p-6 lg:sticky lg:top-8">
+      <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-4">Session Details</h2>
 
       {selectedInterviewer && (
-        <div className="flex items-center gap-3 mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+        <div className="flex items-center gap-3 mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl dark:bg-indigo-500/10 dark:border-indigo-400/20">
           <InterviewerAvatar interviewer={selectedInterviewer} size={40} />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-indigo-900 truncate">{selectedInterviewer.name}</p>
-            <p className="text-xs text-indigo-600 truncate">{selectedInterviewer.companies?.join(', ')}</p>
+            <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-100 truncate">{selectedInterviewer.name}</p>
+            <p className="text-xs text-indigo-600 dark:text-indigo-300 truncate">{selectedInterviewer.companies?.join(', ')}</p>
           </div>
         </div>
       )}
@@ -238,9 +238,9 @@ function BookingForm({
 
         {selectedInterviewer && selectedInterviewer.availabilitySlots?.length > 0 ? (
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Available Slot</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Available Slot</label>
             <select
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-white/10 rounded-lg text-sm focus:border-indigo-500 focus:outline-none bg-white dark:bg-slate-900/80 text-slate-900 dark:text-slate-100"
               value={formData.scheduledTime}
               onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
               required
@@ -270,7 +270,7 @@ function BookingForm({
         )}
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <p className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-400/20 rounded-lg px-3 py-2">
             ❌ {error}
           </p>
         )}
@@ -296,7 +296,7 @@ function MentorList({
   mobile: boolean;
 }) {
   if (interviewers.length === 0) {
-    return <p className="text-slate-600 text-sm">No mentors available at the moment.</p>;
+    return <p className="text-slate-600 dark:text-slate-400 text-sm">No mentors available at the moment.</p>;
   }
 
   return (
@@ -309,8 +309,8 @@ function MentorList({
             variant="bordered"
             className={`p-4 sm:p-5 cursor-pointer transition-all ${
               isSelected
-                ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500'
-                : 'hover:border-slate-300 hover:shadow-sm'
+                ? 'theme-surface-card border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 ring-1 ring-indigo-500'
+                : 'theme-surface-card hover:border-slate-300 dark:hover:border-white/20 hover:shadow-sm'
             }`}
             onClick={() => onSelect(interviewer)}
           >
@@ -318,30 +318,30 @@ function MentorList({
               <InterviewerAvatar interviewer={interviewer} size={mobile ? 44 : 56} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <h3 className="text-sm sm:text-base font-semibold text-slate-900 leading-snug">
+                  <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-snug">
                     {interviewer.name}
                   </h3>
                   {isSelected && (
-                    <span className="shrink-0 text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+                    <span className="shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/15 px-2 py-0.5 rounded-full">
                       ✓ Selected
                     </span>
                   )}
                 </div>
 
                 {interviewer.companies?.length > 0 && (
-                  <p className="text-xs sm:text-sm text-slate-600 mb-0.5">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-0.5">
                     <span className="font-medium">Companies:</span>{' '}
                     <span className="break-words">{interviewer.companies.join(', ')}</span>
                   </p>
                 )}
 
                 {interviewer.yearsOfExperience && (
-                  <p className="text-xs sm:text-sm text-slate-600 mb-0.5">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-0.5">
                     <span className="font-medium">Experience:</span> {interviewer.yearsOfExperience} years
                   </p>
                 )}
 
-                <p className="text-xs sm:text-sm text-slate-600 mb-1">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-1">
                   <span className="font-medium">Specializes in:</span>{' '}
                   <span className="break-words">{interviewer.rolesSupported?.join(', ')}</span>
                 </p>
@@ -360,7 +360,7 @@ function MentorList({
                       {interviewer.availabilitySlots.length !== 1 ? 's' : ''} available
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
                       No slots currently available
                     </span>
                   )}
@@ -384,7 +384,7 @@ function MentorList({
                 {mobile && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onSelect(interviewer); }}
-                    className="mt-3 w-full py-2 text-sm font-semibold text-indigo-600 border border-indigo-300 rounded-lg bg-white hover:bg-indigo-50 transition-colors"
+                    className="mt-3 w-full py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-400/30 rounded-lg bg-white dark:bg-slate-900/80 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
                   >
                     Select & Book →
                   </button>
@@ -499,7 +499,7 @@ export default function BookGuidancePage() {
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">Loading mentors…</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading mentors…</p>
         </div>
       </div>
     );
@@ -508,10 +508,10 @@ export default function BookGuidancePage() {
   if (limitReached && plan) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-0">
-        <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 mb-2">
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">
           Book Guidance Session
         </h1>
-        <p className="text-slate-600 mb-6 sm:mb-8 text-sm sm:text-base">Get mentorship from industry experts.</p>
+        <p className="text-slate-600 dark:text-slate-400 mb-6 sm:mb-8 text-sm sm:text-base">Get mentorship from industry experts.</p>
         <PaymentGate
           planType={plan.planType}
           used={plan.guidanceUsed}
@@ -538,10 +538,10 @@ export default function BookGuidancePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-0 sm:px-0">
-      <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 mb-1 sm:mb-2">
+      <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white mb-1 sm:mb-2">
         Book Guidance Session
       </h1>
-      <p className="text-slate-600 mb-4 sm:mb-6 text-sm sm:text-base">Get mentorship from industry experts.</p>
+      <p className="text-slate-600 dark:text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">Get mentorship from industry experts.</p>
 
       {plan && (
         <UsageBanner
@@ -572,7 +572,7 @@ export default function BookGuidancePage() {
           {/* ── Desktop: two-column grid ── */}
           <div className="hidden lg:grid lg:grid-cols-3 lg:gap-8">
             <div className="col-span-2">
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">Select a Mentor</h2>
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Select a Mentor</h2>
               <MentorList
                 interviewers={interviewers}
                 selectedInterviewer={selectedInterviewer}
@@ -587,7 +587,7 @@ export default function BookGuidancePage() {
 
           {/* ── Mobile: full-width mentor list ── */}
           <div className="lg:hidden">
-            <h2 className="text-lg font-semibold text-slate-900 mb-3">Select a Mentor</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Select a Mentor</h2>
             <MentorList
               interviewers={interviewers}
               selectedInterviewer={selectedInterviewer}

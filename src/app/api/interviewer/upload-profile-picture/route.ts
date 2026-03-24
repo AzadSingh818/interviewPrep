@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-
-
-// ── API route config to allow larger file uploads (up to 10MB) ─────────────
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
 // ── Cloudinary upload via REST API (no SDK, no streams) ───────────────────────
 async function uploadToCloudinary(
   buffer: Buffer,
