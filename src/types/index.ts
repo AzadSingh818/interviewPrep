@@ -1,22 +1,11 @@
-import { 
-  UserRole, 
-  InterviewerStatus, 
-  SessionType, 
-  SessionStatus,
-  DifficultyLevel,
-  InterviewType,
-  HiringRecommendation 
-} from '@prisma/client';
-
-export type {
-  UserRole,
-  InterviewerStatus,
-  SessionType,
-  SessionStatus,
-  DifficultyLevel,
-  InterviewType,
-  HiringRecommendation,
-};
+// Define enums locally instead of importing from Prisma client
+export type UserRole = 'STUDENT' | 'INTERVIEWER' | 'ADMIN';
+export type InterviewerStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type SessionType = 'GUIDANCE' | 'INTERVIEW';
+export type SessionStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+export type DifficultyLevel = 'EASY' | 'MEDIUM' | 'HARD';
+export type InterviewType = 'TECHNICAL' | 'HR' | 'MIXED';
+export type HiringRecommendation = 'STRONG_HIRE' | 'HIRE' | 'WEAK_HIRE' | 'NO_HIRE';
 
 export interface LoginRequest {
   email: string;
@@ -44,7 +33,7 @@ export interface InterviewerProfileData {
   companies: string[];
   yearsOfExperience?: number;
   rolesSupported: string[];
-  careerLevel: 'JUNIOR' | 'MID' | 'SENIOR' | 'STAFF_LEAD';
+  difficultyLevels: DifficultyLevel[];
   sessionTypesOffered: SessionType[];
   linkedinUrl?: string;
 }
@@ -52,13 +41,15 @@ export interface InterviewerProfileData {
 export interface BookGuidanceRequest {
   interviewerId: number;
   topic: string;
+  durationMinutes: number;
   scheduledTime: string;
 }
 
 export interface BookInterviewRequest {
   role: string;
-  difficulty: 'INTERN' | 'ENTRY' | 'MID' | 'SENIOR';
+  difficulty: DifficultyLevel;
   interviewType: InterviewType;
+  durationMinutes: number;
   scheduledTime: string;
 }
 
