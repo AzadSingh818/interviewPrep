@@ -25,6 +25,8 @@ export default function StudentInterviewRoom() {
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const processedCandidates = useRef<Set<string>>(new Set());
   const processedMessages = useRef<Set<string>>(new Set());
+  const isInitialized = useRef(false);
+  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
 
   const [userName, setUserName] = useState("Student");
   const [isMicOn, setIsMicOn] = useState(true);
@@ -80,6 +82,23 @@ export default function StudentInterviewRoom() {
     ]);
   }, []);
 
+  // Drain any ICE candidates that arrived before remoteDescription was set
+  const drainPendingCandidates = useCallback(async () => {
+    const pc = pcRef.current;
+    if (!pc || !pc.remoteDescription) return;
+    
+    const toProcess = [...pendingCandidates.current];
+    pendingCandidates.current = [];
+    
+    for (const candidate of toProcess) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
+
   const pollRoom = useCallback(async () => {
     try {
       const res = await fetch(
@@ -88,11 +107,10 @@ export default function StudentInterviewRoom() {
       if (!res.ok) return;
       const data = await res.json();
 
-      // New chat messages from server — skip own messages (already shown locally)
+      // Process chat messages
       for (const msg of data.messages ?? []) {
         if (!processedMessages.current.has(msg.id)) {
           processedMessages.current.add(msg.id);
-          // Only add if it's from the other side (interviewer)
           if (msg.sender !== "student") {
             setChatMessages((prev) => [
               ...prev,
@@ -108,44 +126,63 @@ export default function StudentInterviewRoom() {
         }
       }
 
-      if (!pcRef.current) return;
+      const pc = pcRef.current;
+      if (!pc) return;
 
-      if (data.answer && pcRef.current.signalingState === "have-local-offer") {
-        await pcRef.current.setRemoteDescription(
-          new RTCSessionDescription(data.answer),
-        );
-        setConnectionStatus("connecting");
+      // Process answer from interviewer
+      if (data.answer && pc.signalingState === "have-local-offer") {
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          setConnectionStatus("connecting");
+          addSystemMessage("Interviewer joined, establishing connection…");
+          // Now drain any buffered candidates
+          await drainPendingCandidates();
+        } catch (e) {
+          console.error("Error setting remote description:", e);
+        }
       }
 
-      if (data.iceCandidates && pcRef.current.remoteDescription) {
+      // Process ICE candidates from interviewer
+      if (data.iceCandidates && Array.isArray(data.iceCandidates)) {
         for (const candidate of data.iceCandidates) {
           const key = JSON.stringify(candidate);
           if (!processedCandidates.current.has(key)) {
             processedCandidates.current.add(key);
-            try {
-              await pcRef.current.addIceCandidate(
-                new RTCIceCandidate(candidate),
-              );
-            } catch {}
+            
+            if (pc.remoteDescription) {
+              // Remote description is set — add immediately
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              } catch (e) {
+                // ignore
+              }
+            } else {
+              // Buffer until remote description is ready
+              pendingCandidates.current.push(candidate);
+            }
           }
         }
       }
-    } catch {}
-  }, [sessionId]);
+    } catch (e) {
+      // ignore polling errors
+    }
+  }, [sessionId, addSystemMessage, drainPendingCandidates]);
 
   const initPeerConnection = useCallback(async () => {
-    // 🚨 Do not recreate if already exists
-    if (pcRef.current && pcRef.current.signalingState !== "closed") {
-      return;
-    }
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
       ],
     });
     pcRef.current = pc;
 
+    // Get local media
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -160,8 +197,10 @@ export default function StudentInterviewRoom() {
       );
     }
 
+    // When we receive remote tracks, show interviewer video
     pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
+      console.log("Student: received remote track", event.streams.length);
+      if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
         setRemoteStream(true);
         setConnectionStatus("connected");
@@ -170,7 +209,10 @@ export default function StudentInterviewRoom() {
     };
 
     pc.onconnectionstatechange = () => {
-      if (
+      console.log("Student connection state:", pc.connectionState);
+      if (pc.connectionState === "connected") {
+        setConnectionStatus("connected");
+      } else if (
         pc.connectionState === "disconnected" ||
         pc.connectionState === "failed"
       ) {
@@ -180,6 +222,14 @@ export default function StudentInterviewRoom() {
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log("Student ICE state:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        setConnectionStatus("connected");
+      }
+    };
+
+    // Send our ICE candidates to server
     pc.onicecandidate = async (event) => {
       if (event.candidate) {
         await fetch("/api/interview-room", {
@@ -195,47 +245,46 @@ export default function StudentInterviewRoom() {
       }
     };
 
-    // 🚨 Guard: avoid createOffer on closed connection
-    if (!pcRef.current || pcRef.current.signalingState === "closed") {
-      console.warn("PeerConnection is closed. Skipping offer.");
-      return;
+    // Create offer and send to server
+    try {
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+      await pc.setLocalDescription(offer);
+
+      await fetch("/api/interview-room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          action: "offer",
+          role: "student",
+          offer: pc.localDescription,
+        }),
+      });
+
+      addSystemMessage("Waiting for interviewer to join...");
+    } catch (e) {
+      console.error("Error creating offer:", e);
+      addSystemMessage("Failed to start connection. Please refresh.");
     }
 
-    const offer = await pcRef.current.createOffer();
-    await pcRef.current.setLocalDescription(offer);
-
-    await fetch("/api/interview-room", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId,
-        action: "offer",
-        role: "student",
-        offer: pc.localDescription,
-      }),
-    });
-
-    addSystemMessage("Waiting for interviewer to join...");
+    // Start polling for answer and candidates
     pollingRef.current = setInterval(pollRoom, 1500);
   }, [sessionId, addSystemMessage, pollRoom]);
 
   useEffect(() => {
-    // 🚨 Prevent double initialization (critical for Next.js + React strict mode)
-    if (pcRef.current) return;
-
     initPeerConnection();
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
-
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-
       if (pcRef.current && pcRef.current.signalingState !== "closed") {
         pcRef.current.close();
       }
     };
-    // ❗ DO NOT add initPeerConnection as dependency
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -286,8 +335,7 @@ export default function StudentInterviewRoom() {
           ?.getSenders()
           .find((s) => s.track?.kind === "video");
         await sender?.replaceTrack(screenTrack);
-        if (localVideoRef.current)
-          localVideoRef.current.srcObject = screenStream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
         screenTrack.onended = () => {
           setIsScreenSharing(false);
           const camTrack = localStreamRef.current?.getVideoTracks()[0];
@@ -309,7 +357,6 @@ export default function StudentInterviewRoom() {
     }
   };
 
-  // ✅ Fixed: show own message immediately, mark as processed to avoid duplication
   const sendMessage = async () => {
     if (!chatInput.trim()) return;
     const text = chatInput.trim();
@@ -328,13 +375,10 @@ export default function StudentInterviewRoom() {
     });
 
     const data = await res.json();
-
-    // Mark server-assigned ID as processed so polling doesn't duplicate it
     if (data.message?.id) {
       processedMessages.current.add(data.message.id);
     }
 
-    // Show own message immediately
     setChatMessages((prev) => [
       ...prev,
       {
@@ -404,18 +448,8 @@ export default function StudentInterviewRoom() {
             </div>
             {connectionStatus === "connected" && (
               <div className="flex items-center gap-1.5 bg-gray-800 rounded-full px-3 py-1.5">
-                <svg
-                  className="w-3.5 h-3.5 text-violet-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
+                <svg className="w-3.5 h-3.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="text-xs font-mono text-violet-300">
                   {formatDuration(duration)}
@@ -429,12 +463,7 @@ export default function StudentInterviewRoom() {
         <div className="flex-1 relative bg-gray-950 p-4">
           <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
             {remoteStream ? (
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
+              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-4">
                 <div className="relative">
@@ -476,15 +505,9 @@ export default function StudentInterviewRoom() {
             )}
           </div>
 
-          {/* PiP */}
+          {/* PiP - local video */}
           <div className="absolute bottom-8 right-8 w-48 h-36 rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl bg-gray-800">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
+            <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             {!isCameraOn && !isScreenSharing && (
               <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
                 <div className="w-10 h-10 rounded-full bg-violet-600 flex items-center justify-center text-sm font-bold">
@@ -505,20 +528,8 @@ export default function StudentInterviewRoom() {
 
         {/* Controls */}
         <div className="bg-gray-900 border-t border-gray-800 px-6 py-4 flex items-center justify-center gap-4">
-          <ControlBtn
-            on={isMicOn}
-            onClick={toggleMic}
-            onIcon={<MicOnIcon />}
-            offIcon={<MicOffIcon />}
-            title={isMicOn ? "Mute" : "Unmute"}
-          />
-          <ControlBtn
-            on={isCameraOn}
-            onClick={toggleCamera}
-            onIcon={<CamOnIcon />}
-            offIcon={<CamOffIcon />}
-            title={isCameraOn ? "Turn off camera" : "Turn on camera"}
-          />
+          <ControlBtn on={isMicOn} onClick={toggleMic} onIcon={<MicOnIcon />} offIcon={<MicOffIcon />} title={isMicOn ? "Mute" : "Unmute"} />
+          <ControlBtn on={isCameraOn} onClick={toggleCamera} onIcon={<CamOnIcon />} offIcon={<CamOffIcon />} title={isCameraOn ? "Turn off camera" : "Turn on camera"} />
           <button
             onClick={toggleScreenShare}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isScreenSharing ? "bg-blue-500 text-white" : "bg-gray-700 hover:bg-gray-600 text-white"}`}
@@ -560,54 +571,28 @@ export default function StudentInterviewRoom() {
   );
 }
 
-// ─── Shared components & icons (same as before) ───────────────────────────────
+// ─── Reusable components ──────────────────────────────────────────────────────
 
-function ControlBtn({
-  on,
-  onClick,
-  onIcon,
-  offIcon,
-  title,
-}: {
-  on: boolean;
-  onClick: () => void;
-  onIcon: React.ReactNode;
-  offIcon: React.ReactNode;
-  title: string;
+function ControlBtn({ on, onClick, onIcon, offIcon, title }: {
+  on: boolean; onClick: () => void;
+  onIcon: React.ReactNode; offIcon: React.ReactNode; title: string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${on ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-red-500/20 border border-red-500 text-red-400"}`}
-    >
+    <button onClick={onClick} title={title}
+      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${on ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-red-500/20 border border-red-500 text-red-400"}`}>
       {on ? onIcon : offIcon}
     </button>
   );
 }
 
 interface ChatPanelProps {
-  messages: ChatMessage[];
-  input: string;
-  onInput: (v: string) => void;
-  onSend: () => void;
-  onClose: () => void;
+  messages: ChatMessage[]; input: string;
+  onInput: (v: string) => void; onSend: () => void; onClose: () => void;
   senderRole: "student" | "interviewer";
   bottomRef: React.RefObject<HTMLDivElement>;
-  accentClass: string;
-  inputFocusClass: string;
+  accentClass: string; inputFocusClass: string;
 }
-function ChatPanel({
-  messages,
-  input,
-  onInput,
-  onSend,
-  onClose,
-  senderRole,
-  bottomRef,
-  accentClass,
-  inputFocusClass,
-}: ChatPanelProps) {
+function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bottomRef, accentClass, inputFocusClass }: ChatPanelProps) {
   return (
     <div className="w-80 flex flex-col bg-gray-900 border-l border-gray-800">
       <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
@@ -615,12 +600,7 @@ function ChatPanel({
           <ChatIcon className="w-4 h-4 text-violet-400" />
           <span className="text-sm font-semibold">Live Chat</span>
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-300 transition-colors"
-        >
-          <CloseIcon />
-        </button>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors"><CloseIcon /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
@@ -639,23 +619,13 @@ function ChatPanel({
               </div>
             </div>
           ) : (
-            <div
-              key={msg.id}
-              className={`flex flex-col gap-1 ${msg.sender === senderRole ? "items-end" : "items-start"}`}
-            >
-              <span className="text-xs text-gray-500 px-1">
-                {msg.sender === senderRole ? "You" : msg.senderName}
-              </span>
-              <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${msg.sender === senderRole ? `${accentClass} text-white rounded-tr-sm` : "bg-gray-800 text-gray-100 rounded-tl-sm"}`}
-              >
+            <div key={msg.id} className={`flex flex-col gap-1 ${msg.sender === senderRole ? "items-end" : "items-start"}`}>
+              <span className="text-xs text-gray-500 px-1">{msg.sender === senderRole ? "You" : msg.senderName}</span>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${msg.sender === senderRole ? `${accentClass} text-white rounded-tr-sm` : "bg-gray-800 text-gray-100 rounded-tl-sm"}`}>
                 {msg.text}
               </div>
               <span className="text-xs text-gray-600 px-1">
-                {msg.timestamp.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
           ),
@@ -664,19 +634,13 @@ function ChatPanel({
       </div>
       <div className="p-4 border-t border-gray-800">
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => onInput(e.target.value)}
+          <input type="text" value={input} onChange={(e) => onInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSend()}
             placeholder="Type a message…"
             className={`flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none transition-colors ${inputFocusClass}`}
           />
-          <button
-            onClick={onSend}
-            disabled={!input.trim()}
-            className={`w-9 h-9 rounded-xl ${accentClass} hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105`}
-          >
+          <button onClick={onSend} disabled={!input.trim()}
+            className={`w-9 h-9 rounded-xl ${accentClass} hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105`}>
             <SendIcon />
           </button>
         </div>
@@ -685,144 +649,13 @@ function ChatPanel({
   );
 }
 
-const MicOnIcon = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-    />
-  </svg>
-);
-const MicOffIcon = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
-    />
-  </svg>
-);
-const CamOnIcon = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-    />
-  </svg>
-);
-const CamOffIcon = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-    />
-  </svg>
-);
-const ScreenShareIcon = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-    />
-  </svg>
-);
-const ChatIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-    />
-  </svg>
-);
-const SendIcon = () => (
-  <svg
-    className="w-4 h-4"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-    />
-  </svg>
-);
-const EndCallIcon = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"
-    />
-  </svg>
-);
-const CloseIcon = () => (
-  <svg
-    className="w-4 h-4"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M6 18L18 6M6 6l12 12"
-    />
-  </svg>
-);
+// ─── Icons ────────────────────────────────────────────────────────────────────
+const MicOnIcon = () => (<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>);
+const MicOffIcon = () => (<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>);
+const CamOnIcon = () => (<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>);
+const CamOffIcon = () => (<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>);
+const ScreenShareIcon = () => (<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>);
+const ChatIcon = ({ className = "w-5 h-5" }: { className?: string }) => (<svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>);
+const SendIcon = () => (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>);
+const EndCallIcon = () => (<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>);
+const CloseIcon = () => (<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>);

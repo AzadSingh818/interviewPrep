@@ -15,6 +15,7 @@ interface RoomData {
   interviewerCandidates: RTCIceCandidateInit[];
   messages: ChatMessage[];
   createdAt: number;
+  offerTimestamp: number;
 }
 
 const rooms = new Map<string, RoomData>();
@@ -26,6 +27,7 @@ function getOrCreateRoom(sessionId: string): RoomData {
       interviewerCandidates: [],
       messages: [],
       createdAt: Date.now(),
+      offerTimestamp: 0,
     });
     setTimeout(() => rooms.delete(sessionId), 4 * 60 * 60 * 1000);
   }
@@ -48,11 +50,13 @@ export async function GET(request: NextRequest) {
       sessionId,
       offer: room.offer,
       answer: room.answer,
+      // Student gets interviewer's ICE candidates
       iceCandidates: room.interviewerCandidates,
       messages: room.messages,
     });
   }
 
+  // Interviewer gets student's offer + student ICE candidates
   return NextResponse.json({
     sessionId,
     offer: room.offer,
@@ -83,11 +87,13 @@ export async function POST(request: NextRequest) {
 
   switch (action) {
     case 'offer':
+      // Only reset if this is a genuinely new offer (not a duplicate)
+      // Reset candidates so stale ones don't confuse the new connection
       room.offer = offer;
-      // Reset answer and candidates when new offer comes in (reconnect scenario)
       room.answer = undefined;
       room.studentCandidates = [];
       room.interviewerCandidates = [];
+      room.offerTimestamp = Date.now();
       return NextResponse.json({ success: true });
 
     case 'answer':
@@ -95,10 +101,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
 
     case 'ice-candidate':
+      if (!candidate) {
+        return NextResponse.json({ error: 'candidate required' }, { status: 400 });
+      }
       if (role === 'student') {
-        room.studentCandidates.push(candidate);
+        // Avoid exact duplicates
+        const key = JSON.stringify(candidate);
+        const exists = room.studentCandidates.some(c => JSON.stringify(c) === key);
+        if (!exists) {
+          room.studentCandidates.push(candidate);
+        }
       } else {
-        room.interviewerCandidates.push(candidate);
+        const key = JSON.stringify(candidate);
+        const exists = room.interviewerCandidates.some(c => JSON.stringify(c) === key);
+        if (!exists) {
+          room.interviewerCandidates.push(candidate);
+        }
       }
       return NextResponse.json({ success: true });
 
@@ -114,7 +132,6 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
       };
       room.messages.push(message);
-      // Keep last 200 messages
       if (room.messages.length > 200) {
         room.messages = room.messages.slice(-200);
       }

@@ -33,6 +33,9 @@ export default function InterviewerInterviewRoom() {
   const processedCandidates = useRef<Set<string>>(new Set());
   const processedMessages = useRef<Set<string>>(new Set());
   const hasCreatedAnswer = useRef(false);
+  const isInitialized = useRef(false);
+  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const lastOfferStr = useRef<string>("");
 
   const [userName, setUserName] = useState("Interviewer");
   const [sessionInfo, setSessionInfo] = useState<any>(null);
@@ -53,7 +56,6 @@ export default function InterviewerInterviewRoom() {
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [notesTab, setNotesTab] = useState<"raw" | "ai">("raw");
   const [generatingNotes, setGeneratingNotes] = useState(false);
-  const [notesSaved, setNotesSaved] = useState(false);
 
   // Behavior monitoring state
   const [behaviorReport, setBehaviorReport] = useState<BehaviorReport | null>(null);
@@ -61,7 +63,6 @@ export default function InterviewerInterviewRoom() {
   const [analyzingBehavior, setAnalyzingBehavior] = useState(false);
   const [lastAnalyzedCount, setLastAnalyzedCount] = useState(0);
 
-  // Load session info for context
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
@@ -91,18 +92,17 @@ export default function InterviewerInterviewRoom() {
     return () => clearInterval(timer);
   }, []);
 
-  // Auto behavior analysis every 2 minutes when connected
+  // Auto behavior analysis every 2 minutes
   useEffect(() => {
     if (connectionStatus === "connected") {
       behaviorTimerRef.current = setInterval(() => {
         const interviewerMsgCount = chatMessages.filter(
           (m) => m.sender === "interviewer",
         ).length;
-        // Only re-analyze if new messages since last analysis
         if (interviewerMsgCount > lastAnalyzedCount && interviewerMsgCount >= 3) {
           runBehaviorAnalysis(false);
         }
-      }, 120_000); // every 2 minutes
+      }, 120_000);
     }
     return () => {
       if (behaviorTimerRef.current) clearInterval(behaviorTimerRef.current);
@@ -131,6 +131,23 @@ export default function InterviewerInterviewRoom() {
     ]);
   }, []);
 
+  // Drain ICE candidates buffered before remoteDescription was set
+  const drainPendingCandidates = useCallback(async () => {
+    const pc = pcRef.current;
+    if (!pc || !pc.remoteDescription) return;
+
+    const toProcess = [...pendingCandidates.current];
+    pendingCandidates.current = [];
+
+    for (const candidate of toProcess) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
+
   const pollRoom = useCallback(async () => {
     try {
       const res = await fetch(
@@ -139,6 +156,7 @@ export default function InterviewerInterviewRoom() {
       if (!res.ok) return;
       const data = await res.json();
 
+      // Process chat messages
       for (const msg of data.messages ?? []) {
         if (!processedMessages.current.has(msg.id)) {
           processedMessages.current.add(msg.id);
@@ -157,56 +175,98 @@ export default function InterviewerInterviewRoom() {
         }
       }
 
-      if (!pcRef.current) return;
+      const pc = pcRef.current;
+      if (!pc) return;
 
-      if (
-        data.offer &&
-        !hasCreatedAnswer.current &&
-        pcRef.current.signalingState === "stable"
-      ) {
-        hasCreatedAnswer.current = true;
-        setConnectionStatus("connecting");
-        addSystemMessage("Student connected, establishing connection…");
-        await pcRef.current.setRemoteDescription(
-          new RTCSessionDescription(data.offer),
-        );
-        const answer = await pcRef.current.createAnswer();
-        await pcRef.current.setLocalDescription(answer);
-        await fetch("/api/interview-room", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            action: "answer",
-            role: "interviewer",
-            answer: pcRef.current.localDescription,
-          }),
-        });
+      // Process student's offer
+      if (data.offer) {
+        const offerStr = JSON.stringify(data.offer);
+        const isNewOffer = offerStr !== lastOfferStr.current;
+
+        if (isNewOffer && !hasCreatedAnswer.current) {
+          hasCreatedAnswer.current = true;
+          lastOfferStr.current = offerStr;
+
+          // Reset candidate tracking for this new offer
+          processedCandidates.current = new Set();
+          pendingCandidates.current = [];
+
+          setConnectionStatus("connecting");
+          addSystemMessage("Student connected, establishing connection…");
+
+          try {
+            // If we're not in stable state, reset first
+            if (pc.signalingState !== "stable") {
+              console.log("Interviewer: resetting to stable before answering");
+              await pc.setLocalDescription({ type: "rollback" });
+            }
+
+            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            await fetch("/api/interview-room", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId,
+                action: "answer",
+                role: "interviewer",
+                answer: pc.localDescription,
+              }),
+            });
+
+            addSystemMessage("Answer sent, waiting for ICE…");
+            // Drain any candidates that arrived before we set remoteDescription
+            await drainPendingCandidates();
+          } catch (e) {
+            console.error("Error creating answer:", e);
+            hasCreatedAnswer.current = false; // allow retry
+          }
+        }
       }
 
-      if (data.studentCandidates && pcRef.current.remoteDescription) {
+      // Process student's ICE candidates
+      if (data.studentCandidates && Array.isArray(data.studentCandidates)) {
         for (const candidate of data.studentCandidates) {
           const key = JSON.stringify(candidate);
           if (!processedCandidates.current.has(key)) {
             processedCandidates.current.add(key);
-            try {
-              await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch {}
+
+            if (pc.remoteDescription) {
+              // Safe to add immediately
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              } catch (e) {
+                // ignore
+              }
+            } else {
+              // Buffer until remoteDescription is set
+              pendingCandidates.current.push(candidate);
+            }
           }
         }
       }
-    } catch {}
-  }, [sessionId, addSystemMessage]);
+    } catch (e) {
+      // ignore polling errors
+    }
+  }, [sessionId, addSystemMessage, drainPendingCandidates]);
 
   const initPeerConnection = useCallback(async () => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
       ],
     });
     pcRef.current = pc;
 
+    // Get local media
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -221,8 +281,10 @@ export default function InterviewerInterviewRoom() {
       );
     }
 
+    // When student's tracks arrive
     pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
+      console.log("Interviewer: received remote track", event.streams.length);
+      if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
         setRemoteStream(true);
         setConnectionStatus("connected");
@@ -231,13 +293,30 @@ export default function InterviewerInterviewRoom() {
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+      console.log("Interviewer connection state:", pc.connectionState);
+      if (pc.connectionState === "connected") {
+        setConnectionStatus("connected");
+      } else if (
+        pc.connectionState === "disconnected" ||
+        pc.connectionState === "failed"
+      ) {
         setConnectionStatus("disconnected");
         setRemoteStream(false);
         addSystemMessage("Student disconnected.");
+        // Allow re-answering if student reconnects
+        hasCreatedAnswer.current = false;
+        lastOfferStr.current = "";
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log("Interviewer ICE state:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        setConnectionStatus("connected");
+      }
+    };
+
+    // Send our ICE candidates to server
     pc.onicecandidate = async (event) => {
       if (event.candidate) {
         await fetch("/api/interview-room", {
@@ -254,6 +333,7 @@ export default function InterviewerInterviewRoom() {
     };
 
     addSystemMessage("Waiting for student to join…");
+    // Start polling — interviewer waits for student's offer
     pollingRef.current = setInterval(pollRoom, 1500);
   }, [sessionId, addSystemMessage, pollRoom]);
 
@@ -265,7 +345,8 @@ export default function InterviewerInterviewRoom() {
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       pcRef.current?.close();
     };
-  }, [initPeerConnection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -319,7 +400,6 @@ export default function InterviewerInterviewRoom() {
     ]);
   };
 
-  // ── Generate AI structured notes ──────────────────────────────────────────
   const generateAINotes = async () => {
     setGeneratingNotes(true);
     try {
@@ -352,7 +432,6 @@ export default function InterviewerInterviewRoom() {
     }
   };
 
-  // ── Run behavior analysis ─────────────────────────────────────────────────
   const runBehaviorAnalysis = async (manual = true) => {
     if (manual) setAnalyzingBehavior(true);
     try {
@@ -372,7 +451,6 @@ export default function InterviewerInterviewRoom() {
       if (data.score !== undefined) {
         setBehaviorReport(data);
         if (manual) setIsBehaviorOpen(true);
-        // Auto-open if red flag detected
         if (data.flag === "red" && !manual) {
           setIsBehaviorOpen(true);
           addSystemMessage("⚠️ Admin alert: Behavior concern detected.");
@@ -386,7 +464,6 @@ export default function InterviewerInterviewRoom() {
   };
 
   const endCall = async () => {
-    // Run final behavior analysis before leaving
     await runBehaviorAnalysis(false);
     if (pollingRef.current) clearInterval(pollingRef.current);
     if (behaviorTimerRef.current) clearInterval(behaviorTimerRef.current);
@@ -426,7 +503,7 @@ export default function InterviewerInterviewRoom() {
       style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
     >
       <div className="flex flex-col flex-1 min-w-0">
-        {/* ── Top bar ── */}
+        {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -436,35 +513,24 @@ export default function InterviewerInterviewRoom() {
               <span className="font-semibold text-sm">InterviewPrepLive</span>
             </div>
             <div className="h-5 w-px bg-gray-700" />
-            <span className="text-xs text-gray-400 font-mono">
-              Session #{sessionId}
-            </span>
+            <span className="text-xs text-gray-400 font-mono">Session #{sessionId}</span>
             <div className="bg-amber-500/20 border border-amber-500/40 rounded-full px-2.5 py-0.5">
-              <span className="text-xs text-amber-400 font-medium">
-                Interviewer View
-              </span>
+              <span className="text-xs text-amber-400 font-medium">Interviewer View</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-gray-800 rounded-full px-3 py-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${statusColors[connectionStatus]} ${connectionStatus === "connected" ? "animate-pulse" : ""}`}
-              />
-              <span className="text-xs font-medium text-gray-300">
-                {statusLabels[connectionStatus]}
-              </span>
+              <span className={`w-2 h-2 rounded-full ${statusColors[connectionStatus]} ${connectionStatus === "connected" ? "animate-pulse" : ""}`} />
+              <span className="text-xs font-medium text-gray-300">{statusLabels[connectionStatus]}</span>
             </div>
             {connectionStatus === "connected" && (
               <div className="flex items-center gap-1.5 bg-gray-800 rounded-full px-3 py-1.5">
                 <svg className="w-3.5 h-3.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-xs font-mono text-violet-300">
-                  {formatDuration(duration)}
-                </span>
+                <span className="text-xs font-mono text-violet-300">{formatDuration(duration)}</span>
               </div>
             )}
-            {/* Behavior monitor button */}
             {behaviorReport && (
               <button
                 onClick={() => setIsBehaviorOpen((o) => !o)}
@@ -474,7 +540,6 @@ export default function InterviewerInterviewRoom() {
                 Conduct: {behaviorReport.score}/100
               </button>
             )}
-            {/* Notes button */}
             <button
               onClick={() => setIsNotesOpen((o) => !o)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${isNotesOpen ? "bg-amber-500/20 border border-amber-500/40 text-amber-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}
@@ -485,7 +550,7 @@ export default function InterviewerInterviewRoom() {
           </div>
         </div>
 
-        {/* ── Video area ── */}
+        {/* Video area */}
         <div className="flex-1 relative bg-gray-950 p-4">
           <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
             {remoteStream ? (
@@ -534,220 +599,116 @@ export default function InterviewerInterviewRoom() {
             </div>
           </div>
 
-          {/* ── AI NOTES PANEL ── */}
+          {/* AI Notes Panel */}
           {isNotesOpen && (
             <div className="absolute top-6 left-6 w-80 bg-gray-900/97 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100%-48px)]">
-              {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <NoteIcon className="w-4 h-4 text-amber-400" />
                   <span className="text-sm font-semibold text-amber-400">Interview Notes</span>
                 </div>
-                <button onClick={() => setIsNotesOpen(false)} className="text-gray-500 hover:text-gray-300">
-                  <CloseIcon />
-                </button>
+                <button onClick={() => setIsNotesOpen(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
               </div>
-
-              {/* Tabs */}
               <div className="flex border-b border-gray-700 flex-shrink-0">
-                <button
-                  onClick={() => setNotesTab("raw")}
-                  className={`flex-1 py-2 text-xs font-semibold transition-colors ${notesTab === "raw" ? "text-amber-400 border-b-2 border-amber-400" : "text-gray-500 hover:text-gray-300"}`}
-                >
-                  My Notes
-                </button>
-                <button
-                  onClick={() => setNotesTab("ai")}
-                  className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${notesTab === "ai" ? "text-violet-400 border-b-2 border-violet-400" : "text-gray-500 hover:text-gray-300"}`}
-                >
-                  <SparkleIcon />
-                  AI Notes
-                  {aiNotes && <span className="w-1.5 h-1.5 rounded-full bg-violet-400 ml-0.5" />}
+                <button onClick={() => setNotesTab("raw")} className={`flex-1 py-2 text-xs font-semibold transition-colors ${notesTab === "raw" ? "text-amber-400 border-b-2 border-amber-400" : "text-gray-500 hover:text-gray-300"}`}>My Notes</button>
+                <button onClick={() => setNotesTab("ai")} className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${notesTab === "ai" ? "text-violet-400 border-b-2 border-violet-400" : "text-gray-500 hover:text-gray-300"}`}>
+                  <SparkleIcon />AI Notes{aiNotes && <span className="w-1.5 h-1.5 rounded-full bg-violet-400 ml-0.5" />}
                 </button>
               </div>
-
-              {/* Tab content */}
               <div className="flex-1 overflow-y-auto p-3 min-h-0">
                 {notesTab === "raw" ? (
                   <div className="flex flex-col h-full gap-2">
                     <textarea
                       value={rawNotes}
-                      onChange={(e) => { setRawNotes(e.target.value); setNotesSaved(false); }}
-                      placeholder={"Jot down quick notes during the interview…\n\n• Technical skills observed\n• Communication style\n• Key moments\n• Questions asked"}
+                      onChange={(e) => setRawNotes(e.target.value)}
+                      placeholder={"Jot down quick notes…\n\n• Technical skills observed\n• Communication style\n• Key moments"}
                       className="w-full flex-1 min-h-[180px] bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-amber-500/50 resize-none transition-colors"
                     />
                     <p className="text-xs text-gray-600">Private — only visible to you</p>
                   </div>
                 ) : (
                   <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
-                    {aiNotes ? (
-                      aiNotes
-                    ) : (
+                    {aiNotes || (
                       <div className="flex flex-col items-center justify-center py-8 text-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-violet-500/10 flex items-center justify-center">
-                          <SparkleIcon className="w-6 h-6 text-violet-400" />
-                        </div>
-                        <p className="text-gray-500 text-xs leading-relaxed">
-                          AI will generate structured notes<br/>based on your notes + chat transcript
-                        </p>
+                        <SparkleIcon className="w-6 h-6 text-violet-400" />
+                        <p className="text-gray-500 text-xs leading-relaxed">AI will generate structured notes<br/>based on your notes + chat transcript</p>
                       </div>
                     )}
                   </div>
                 )}
               </div>
-
-              {/* Generate button */}
               <div className="p-3 border-t border-gray-700 flex-shrink-0">
                 <button
                   onClick={generateAINotes}
                   disabled={generatingNotes}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
-                             bg-gradient-to-r from-violet-600 to-indigo-600
-                             hover:from-violet-500 hover:to-indigo-500
-                             disabled:opacity-50 disabled:cursor-not-allowed
-                             text-white text-xs font-semibold transition-all"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold transition-all"
                 >
-                  {generatingNotes ? (
-                    <>
-                      <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Generating AI Notes…
-                    </>
-                  ) : (
-                    <>
-                      <SparkleIcon className="w-3.5 h-3.5" />
-                      Generate AI Notes for Admin
-                    </>
-                  )}
+                  {generatingNotes ? (<><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Generating…</>) : (<><SparkleIcon className="w-3.5 h-3.5" />Generate AI Notes</>)}
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── BEHAVIOR MONITOR PANEL ── */}
+          {/* Behavior Monitor Panel */}
           {isBehaviorOpen && (
             <div className="absolute top-6 right-6 w-72 bg-gray-900/97 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-2xl">
-              {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
                 <div className="flex items-center gap-2">
                   <ShieldIcon className="w-4 h-4 text-blue-400" />
                   <span className="text-sm font-semibold text-blue-400">Conduct Monitor</span>
                 </div>
-                <button onClick={() => setIsBehaviorOpen(false)} className="text-gray-500 hover:text-gray-300">
-                  <CloseIcon />
-                </button>
+                <button onClick={() => setIsBehaviorOpen(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
               </div>
-
               <div className="p-4 space-y-3">
                 {behaviorReport ? (
                   <>
-                    {/* Score ring */}
                     <div className="flex items-center gap-4">
-                      <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center font-bold text-lg ${
-                        behaviorReport.flag === 'green' ? 'border-green-500 text-green-400' :
-                        behaviorReport.flag === 'yellow' ? 'border-yellow-500 text-yellow-400' :
-                        'border-red-500 text-red-400'
-                      }`}>
+                      <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center font-bold text-lg ${behaviorReport.flag === 'green' ? 'border-green-500 text-green-400' : behaviorReport.flag === 'yellow' ? 'border-yellow-500 text-yellow-400' : 'border-red-500 text-red-400'}`}>
                         {behaviorReport.score}
                       </div>
                       <div>
-                        <p className={`text-sm font-bold ${flagColor[behaviorReport.flag]}`}>
-                          {flagEmoji[behaviorReport.flag]} {behaviorReport.flag === 'green' ? 'Professional' : behaviorReport.flag === 'yellow' ? 'Caution' : 'Alert'}
-                        </p>
+                        <p className={`text-sm font-bold ${flagColor[behaviorReport.flag]}`}>{flagEmoji[behaviorReport.flag]} {behaviorReport.flag === 'green' ? 'Professional' : behaviorReport.flag === 'yellow' ? 'Caution' : 'Alert'}</p>
                         <p className="text-xs text-gray-500 mt-0.5">Conduct Score</p>
                       </div>
                     </div>
-
-                    {/* Summary */}
-                    <div className={`rounded-xl p-3 border text-xs text-gray-300 leading-relaxed ${flagBg[behaviorReport.flag]}`}>
-                      {behaviorReport.summary}
-                    </div>
-
-                    {/* Issues */}
+                    <div className={`rounded-xl p-3 border text-xs text-gray-300 leading-relaxed ${flagBg[behaviorReport.flag]}`}>{behaviorReport.summary}</div>
                     {behaviorReport.issues.length > 0 && (
                       <div className="space-y-1.5">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Issues Flagged</p>
                         {behaviorReport.issues.map((issue, i) => (
-                          <div key={i} className="flex gap-2 text-xs text-red-300 bg-red-500/10 rounded-lg px-3 py-2">
-                            <span className="flex-shrink-0">•</span>
-                            <span>{issue}</span>
-                          </div>
+                          <div key={i} className="flex gap-2 text-xs text-red-300 bg-red-500/10 rounded-lg px-3 py-2"><span>•</span><span>{issue}</span></div>
                         ))}
                       </div>
                     )}
-
-                    <p className="text-xs text-gray-600 text-center">
-                      Auto-updates every 2 min · Admin can view this report
-                    </p>
+                    <p className="text-xs text-gray-600 text-center">Auto-updates every 2 min</p>
                   </>
                 ) : (
-                  <div className="text-center py-4 text-gray-500 text-sm">
-                    No analysis yet. Send a few messages first.
-                  </div>
+                  <div className="text-center py-4 text-gray-500 text-sm">No analysis yet. Send a few messages first.</div>
                 )}
-
-                {/* Manual analyze button */}
                 <button
                   onClick={() => runBehaviorAnalysis(true)}
                   disabled={analyzingBehavior}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl
-                             bg-blue-600/20 border border-blue-600/30 hover:bg-blue-600/30
-                             text-blue-400 text-xs font-semibold transition-all
-                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-600/20 border border-blue-600/30 hover:bg-blue-600/30 text-blue-400 text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {analyzingBehavior ? (
-                    <>
-                      <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Analyzing…
-                    </>
-                  ) : (
-                    <>
-                      <ShieldIcon className="w-3.5 h-3.5" />
-                      Analyze Now
-                    </>
-                  )}
+                  {analyzingBehavior ? (<><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Analyzing…</>) : (<><ShieldIcon className="w-3.5 h-3.5" />Analyze Now</>)}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Controls ── */}
+        {/* Controls */}
         <div className="bg-gray-900 border-t border-gray-800 px-6 py-4 flex items-center justify-center gap-4">
           <ControlBtn on={isMicOn} onClick={toggleMic} onIcon={<MicOnIcon />} offIcon={<MicOffIcon />} title={isMicOn ? "Mute" : "Unmute"} />
           <ControlBtn on={isCameraOn} onClick={toggleCamera} onIcon={<CamOnIcon />} offIcon={<CamOffIcon />} title={isCameraOn ? "Turn off camera" : "Turn on camera"} />
-          <button
-            onClick={() => setIsChatOpen((o) => !o)}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isChatOpen ? "bg-amber-600" : "bg-gray-700 hover:bg-gray-600"}`}
-            title="Toggle chat"
-          >
-            <ChatIcon />
-          </button>
-          {/* Conduct monitor button in controls */}
+          <button onClick={() => setIsChatOpen((o) => !o)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isChatOpen ? "bg-amber-600" : "bg-gray-700 hover:bg-gray-600"}`} title="Toggle chat"><ChatIcon /></button>
           <button
             onClick={() => { setIsBehaviorOpen((o) => !o); if (!behaviorReport) runBehaviorAnalysis(true); }}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${
-              isBehaviorOpen ? "bg-blue-600" :
-              behaviorReport?.flag === "red" ? "bg-red-500/20 border border-red-500 text-red-400" :
-              behaviorReport?.flag === "yellow" ? "bg-yellow-500/20 border border-yellow-500 text-yellow-400" :
-              "bg-gray-700 hover:bg-gray-600"
-            }`}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isBehaviorOpen ? "bg-blue-600" : behaviorReport?.flag === "red" ? "bg-red-500/20 border border-red-500 text-red-400" : behaviorReport?.flag === "yellow" ? "bg-yellow-500/20 border border-yellow-500 text-yellow-400" : "bg-gray-700 hover:bg-gray-600"}`}
             title="Conduct Monitor"
-          >
-            <ShieldIcon />
-          </button>
-          <button
-            onClick={endCall}
-            className="flex items-center gap-2 h-12 rounded-full bg-red-600 hover:bg-red-700 px-6 font-medium text-sm transition-all hover:scale-105 ml-4"
-            title="End session"
-          >
-            <EndCallIcon />
-            End Session
+          ><ShieldIcon /></button>
+          <button onClick={endCall} className="flex items-center gap-2 h-12 rounded-full bg-red-600 hover:bg-red-700 px-6 font-medium text-sm transition-all hover:scale-105 ml-4" title="End session">
+            <EndCallIcon />End Session
           </button>
         </div>
       </div>
@@ -803,28 +764,20 @@ function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bott
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-3">
-              <ChatIcon className="w-6 h-6 text-gray-600" />
-            </div>
+            <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-3"><ChatIcon className="w-6 h-6 text-gray-600" /></div>
             <p className="text-gray-500 text-sm">Chat will appear here</p>
           </div>
         )}
         {messages.map((msg) =>
           msg.sender === "system" ? (
             <div key={msg.id} className="flex justify-center">
-              <div className="bg-gray-800 rounded-full px-3 py-1">
-                <span className="text-xs text-gray-400">{msg.text}</span>
-              </div>
+              <div className="bg-gray-800 rounded-full px-3 py-1"><span className="text-xs text-gray-400">{msg.text}</span></div>
             </div>
           ) : (
             <div key={msg.id} className={`flex flex-col gap-1 ${msg.sender === senderRole ? "items-end" : "items-start"}`}>
               <span className="text-xs text-gray-500 px-1">{msg.sender === senderRole ? "You" : msg.senderName}</span>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${msg.sender === senderRole ? `${accentClass} text-white rounded-tr-sm` : "bg-gray-800 text-gray-100 rounded-tl-sm"}`}>
-                {msg.text}
-              </div>
-              <span className="text-xs text-gray-600 px-1">
-                {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${msg.sender === senderRole ? `${accentClass} text-white rounded-tr-sm` : "bg-gray-800 text-gray-100 rounded-tl-sm"}`}>{msg.text}</div>
+              <span className="text-xs text-gray-600 px-1">{msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
             </div>
           ),
         )}
