@@ -22,11 +22,14 @@ function readRequiredEnv(name: RequiredServerEnv): string {
   return value;
 }
 
-export const env: Record<RequiredServerEnv, string> = requiredServerEnv.reduce(
-  (values, name) => {
-    values[name] = readRequiredEnv(name);
-    return values;
-  },
+export const env: Record<RequiredServerEnv, string> = new Proxy(
   {} as Record<RequiredServerEnv, string>,
+  {
+    get(_target, prop: string | symbol) {
+      if (typeof prop !== 'string') return undefined;
+      if (!requiredServerEnv.includes(prop as RequiredServerEnv)) return undefined;
+      return readRequiredEnv(prop as RequiredServerEnv);
+    },
+  },
 );
 
