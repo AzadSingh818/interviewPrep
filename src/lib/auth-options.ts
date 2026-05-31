@@ -2,12 +2,19 @@
 import { AuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
-import { env } from './env';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value || value.trim() === '') {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
 function getJwtSecret(): string {
-  return env.JWT_SECRET;
+  return getRequiredEnv('JWT_SECRET');
 }
 
 interface JWTPayload {
@@ -30,14 +37,15 @@ function isGoogleAccountPhoto(url: string | null | undefined): boolean {
   return url.includes('googleusercontent.com') || url.includes('ggpht.com');
 }
 
-export const authOptions: AuthOptions = {
-  providers: [
-    GoogleProvider({
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-    }),
-  ],
-  callbacks: {
+export function buildAuthOptions(): AuthOptions {
+  return {
+    providers: [
+      GoogleProvider({
+        clientId: getRequiredEnv('GOOGLE_CLIENT_ID'),
+        clientSecret: getRequiredEnv('GOOGLE_CLIENT_SECRET'),
+      }),
+    ],
+    callbacks: {
     async jwt({ token, account, profile }) {
       console.log('🔍 [jwt] Callback - account:', !!account, 'profile:', !!profile);
 
@@ -199,11 +207,12 @@ export const authOptions: AuthOptions = {
 
       return baseUrl;
     },
-  },
-  pages: {
-    signIn: '/login/student',
-    error:  '/login/student',
-  },
-  secret:  env.NEXTAUTH_SECRET,
-  session: { strategy: 'jwt' },
-};
+    },
+    pages: {
+      signIn: '/login/student',
+      error:  '/login/student',
+    },
+    secret:  getRequiredEnv('NEXTAUTH_SECRET'),
+    session: { strategy: 'jwt' },
+  };
+}
