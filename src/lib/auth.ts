@@ -2,13 +2,16 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
-import { env } from './env';
 import { UserRole } from '@prisma/client';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
 
 function getJwtSecret(): string {
-  return env.JWT_SECRET;
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.trim() === '') {
+    throw new Error('Missing required environment variable: JWT_SECRET');
+  }
+  return secret;
 }
 
 export interface JWTPayload {
