@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
+import { useToast } from '@/components/ui/Toast';
 
 // ─── AI Assist Button ─────────────────────────────────────────────────────────
 function AIAssistButton({
@@ -140,6 +141,7 @@ function AITextarea({
 export default function InterviewerFeedbackPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const sessionId = params.sessionId;
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -184,14 +186,14 @@ export default function InterviewerFeedbackPage() {
         body: JSON.stringify({ sessionId, sessionType: session.sessionType, ...formData }),
       });
       if (res.ok) {
-        alert('Feedback submitted successfully!');
+        toast('Feedback submitted successfully!', 'success');
         router.push('/interviewer/sessions');
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to submit feedback');
+        toast(data.error || 'Failed to submit feedback', 'error');
       }
     } catch (error) {
-      alert('An error occurred. Please try again.');
+      toast('An error occurred. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
+import { PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
 import { InterviewType } from '@prisma/client';
 import { sendBookingConfirmationToStudent, sendBookingNotificationToInterviewer } from '@/lib/email';
 
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'LIMIT_REACHED',
           message: studentProfile.planType === 'FREE'
-            ? 'You have used all 5 free interviews. Upgrade to Pro for ₹99/month to get 10 more.'
+            ? `You have used all 5 free interviews. Upgrade to Pro for ${PRO_PLAN_PRICE_DISPLAY}/month to get 10 more.`
             : 'You have used all 10 interviews for this month. Renew your plan to continue.',
           planType: studentProfile.planType,
           used:     studentProfile.interviewsUsed,

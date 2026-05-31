@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
+import { useToast } from '@/components/ui/Toast';
 import { PaymentGate, UsageBanner } from '@/components/shared/PaymentGate';
 
 // ─── Predefined Guidance Topics ──────────────────────────────────────────────
@@ -391,6 +392,7 @@ function MentorList({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BookGuidancePage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [interviewers, setInterviewers]               = useState<any[]>([]);
   const [selectedInterviewer, setSelectedInterviewer] = useState<any>(null);
   const [loading, setLoading]       = useState(true);
@@ -475,7 +477,7 @@ export default function BookGuidancePage() {
       const data = await res.json();
 
       if (res.ok) {
-        alert('Guidance session booked successfully!');
+        toast('Guidance session booked successfully!', 'success');
         router.push('/student/sessions');
       } else if (data.error === 'LIMIT_REACHED') {
         setLimitReached(true);

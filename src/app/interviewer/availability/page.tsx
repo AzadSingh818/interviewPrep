@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { useToast } from '@/components/ui/Toast';
 import { formatDateTime } from '@/lib/utils';
 
 export default function InterviewerAvailabilityPage() {
+  const { toast } = useToast();
   const [slots, setSlots]       = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -70,8 +72,8 @@ export default function InterviewerAvailabilityPage() {
         body: JSON.stringify({ slotId }),
       });
       if (res.ok) { await fetchSlots(); }
-      else { const data = await res.json(); alert(data.error || 'Failed to delete slot'); }
-    } catch { alert('An error occurred. Please try again.'); }
+      else { const data = await res.json(); toast(data.error || 'Failed to delete slot', 'error'); }
+    } catch { toast('An error occurred. Please try again.', 'error'); }
   };
 
   const now = new Date();

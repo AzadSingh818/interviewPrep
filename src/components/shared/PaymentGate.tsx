@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PRO_PLAN_DESCRIPTION, PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
 
 declare global {
   interface Window {
@@ -65,7 +66,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'InterviewPrepLive',
-        description: 'Pro Plan — ₹99/month (10 Interviews + 10 Guidance)',
+        description: PRO_PLAN_DESCRIPTION,
         order_id: orderData.orderId,
         prefill: { name: userName, email: userEmail },
         theme: { color: '#6366f1' },
@@ -153,7 +154,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
             <h3 className="text-2xl sm:text-3xl font-bold">Pro Plan</h3>
           </div>
           <div className="text-right">
-            <p className="text-3xl sm:text-4xl font-bold">₹99</p>
+            <p className="text-3xl sm:text-4xl font-bold">{PRO_PLAN_PRICE_DISPLAY}</p>
             <p className="text-indigo-200 text-sm">per month</p>
           </div>
         </div>
@@ -187,7 +188,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
               Processing...
             </span>
           ) : (
-            `Pay ₹99 — ${isFreePlan ? 'Unlock Pro' : 'Renew Plan'}`
+            `Pay ${PRO_PLAN_PRICE_DISPLAY} — ${isFreePlan ? 'Unlock Pro' : 'Renew Plan'}`
           )}
         </button>
       </div>
@@ -258,7 +259,7 @@ export function UsageBanner({ planType, used, limit, sessionType, planExpiresAt 
       {isLow && remaining > 0 && (
         <p className="text-xs text-amber-700 mt-2">
           ⚠️ Only {remaining} {sessionLabel} left.{' '}
-          {planType === 'FREE' ? 'Upgrade to Pro for ₹99/month.' : 'Consider renewing soon.'}
+          {planType === 'FREE' ? `Upgrade to Pro for ${PRO_PLAN_PRICE_DISPLAY}/month.` : 'Consider renewing soon.'}
         </p>
       )}
       {planType === 'PRO' && expiryStr && (

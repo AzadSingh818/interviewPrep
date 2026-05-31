@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
+import { validatePasswordPolicy } from '@/lib/password-policy';
 
 // ─── Dark mode hook ───────────────────────────────────────────────────────────
 function useDarkMode() {
@@ -86,7 +88,8 @@ function SettingsModal({
     e.preventDefault();
     setPwStatus(null);
     if (pwForm.next !== pwForm.confirm) { setPwStatus({ type: 'error', msg: 'New passwords do not match' }); return; }
-    if (pwForm.next.length < 8)         { setPwStatus({ type: 'error', msg: 'Password must be at least 8 characters' }); return; }
+    const passwordPolicy = validatePasswordPolicy(pwForm.next);
+    if (!passwordPolicy.valid)          { setPwStatus({ type: 'error', msg: passwordPolicy.error || 'Password does not meet requirements' }); return; }
     setPwLoading(true);
     try {
       const res = await fetch('/api/student/change-password', {
@@ -291,7 +294,7 @@ function SettingsModal({
                   </div>
                   <div>
                     <label className={labelCls}>New Password</label>
-                    <input type="password" className={inputCls} value={pwForm.next} onChange={e => setPwForm({ ...pwForm, next: e.target.value })} required placeholder="Min. 8 characters" />
+                    <input type="password" className={inputCls} value={pwForm.next} onChange={e => setPwForm({ ...pwForm, next: e.target.value })} required placeholder="8+ chars, letter and number" />
                   </div>
                   <div>
                     <label className={labelCls}>Confirm New Password</label>
@@ -592,7 +595,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2.5">Unlock 10 sessions/month</p>
               <Link href="/student/dashboard?upgrade=1" onClick={() => setSidebarOpen(false)}>
                 <button className="w-full py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[12px] font-bold rounded-lg hover:opacity-90 transition-opacity">
-                  Upgrade — ₹99/mo
+                  Upgrade — {PRO_PLAN_PRICE_DISPLAY}/mo
                 </button>
               </Link>
             </div>

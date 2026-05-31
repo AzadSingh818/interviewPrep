@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 interface ChatMessage {
@@ -9,6 +9,21 @@ interface ChatMessage {
   senderName: string;
   text: string;
   timestamp: Date;
+}
+
+function attachVideoStream(ref: RefObject<HTMLVideoElement>, stream: MediaStream | null): boolean {
+  const video = ref.current;
+  if (!video || !stream) return false;
+
+  try {
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+    return true;
+  } catch (error) {
+    console.error("Failed to attach video stream:", error);
+    return false;
+  }
 }
 
 export default function StudentInterviewRoom() {
@@ -189,7 +204,7 @@ export default function StudentInterviewRoom() {
         audio: true,
       });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      attachVideoStream(localVideoRef, stream);
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     } catch {
       addSystemMessage(
@@ -200,8 +215,7 @@ export default function StudentInterviewRoom() {
     // When we receive remote tracks, show interviewer video
     pc.ontrack = (event) => {
       console.log("Student: received remote track", event.streams.length);
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
+      if (attachVideoStream(remoteVideoRef, event.streams[0] || null)) {
         setRemoteStream(true);
         setConnectionStatus("connected");
         addSystemMessage("Interviewer connected!");
@@ -318,9 +332,7 @@ export default function StudentInterviewRoom() {
           .find((s) => s.track?.kind === "video");
         await sender?.replaceTrack(videoTrack);
       }
-      if (localVideoRef.current && localStreamRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
-      }
+      attachVideoStream(localVideoRef, localStreamRef.current);
       setIsScreenSharing(false);
       addSystemMessage("Screen sharing stopped.");
     } else {
@@ -335,7 +347,7 @@ export default function StudentInterviewRoom() {
           ?.getSenders()
           .find((s) => s.track?.kind === "video");
         await sender?.replaceTrack(screenTrack);
-        if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
+        attachVideoStream(localVideoRef, screenStream);
         screenTrack.onended = () => {
           setIsScreenSharing(false);
           const camTrack = localStreamRef.current?.getVideoTracks()[0];
@@ -345,8 +357,7 @@ export default function StudentInterviewRoom() {
               .find((x) => x.track?.kind === "video");
             s?.replaceTrack(camTrack);
           }
-          if (localVideoRef.current && localStreamRef.current)
-            localVideoRef.current.srcObject = localStreamRef.current;
+          attachVideoStream(localVideoRef, localStreamRef.current);
           addSystemMessage("Screen sharing stopped.");
         };
         setIsScreenSharing(true);

@@ -2,15 +2,12 @@
 import { AuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
+import { env } from './env';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('Server misconfigured: JWT_SECRET is not set');
-  }
-  return secret;
+  return env.JWT_SECRET;
 }
 
 interface JWTPayload {
@@ -36,8 +33,8 @@ function isGoogleAccountPhoto(url: string | null | undefined): boolean {
 export const authOptions: AuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
     }),
   ],
   callbacks: {
@@ -68,8 +65,6 @@ export const authOptions: AuthOptions = {
           if (user) {
             console.log('✅ [jwt] Existing user found:', user.id, 'Role:', user.role);
 
-            const finalRole = user.role === 'ADMIN' ? user.role : requestedRole;
-
             // ─── PHOTO PROTECTION ─────────────────────────────────────────────
             // If the user has uploaded a custom photo (any non-Google URL),
             // NEVER overwrite it — even if they sign in with Google again.
@@ -95,12 +90,10 @@ export const authOptions: AuthOptions = {
                 name,
                 profilePicture: photoToSave,
                 emailVerified:  true,
-                role:           finalRole as any,
               },
             });
 
-            user = { ...user, role: finalRole as any };
-            console.log('✅ [jwt] User updated. Role:', finalRole);
+            console.log('✅ [jwt] User updated. Role preserved:', user.role);
 
           } else {
             console.log('✅ [jwt] Creating NEW user with role:', requestedRole);
@@ -211,6 +204,6 @@ export const authOptions: AuthOptions = {
     signIn: '/login/student',
     error:  '/login/student',
   },
-  secret:  process.env.NEXTAUTH_SECRET,
+  secret:  env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt' },
 };

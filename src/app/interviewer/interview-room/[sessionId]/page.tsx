@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 interface ChatMessage {
@@ -16,6 +16,21 @@ interface BehaviorReport {
   flag: "green" | "yellow" | "red";
   summary: string;
   issues: string[];
+}
+
+function attachVideoStream(ref: RefObject<HTMLVideoElement>, stream: MediaStream | null): boolean {
+  const video = ref.current;
+  if (!video || !stream) return false;
+
+  try {
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+    return true;
+  } catch (error) {
+    console.error("Failed to attach video stream:", error);
+    return false;
+  }
 }
 
 export default function InterviewerInterviewRoom() {
@@ -273,7 +288,7 @@ export default function InterviewerInterviewRoom() {
         audio: true,
       });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      attachVideoStream(localVideoRef, stream);
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     } catch {
       addSystemMessage(
@@ -284,8 +299,7 @@ export default function InterviewerInterviewRoom() {
     // When student's tracks arrive
     pc.ontrack = (event) => {
       console.log("Interviewer: received remote track", event.streams.length);
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
+      if (attachVideoStream(remoteVideoRef, event.streams[0] || null)) {
         setRemoteStream(true);
         setConnectionStatus("connected");
         addSystemMessage("Student video/audio connected!");

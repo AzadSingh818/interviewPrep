@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Delete expired pending users (older than 24 hours)
-    const result = await (prisma as any).pendingUser.deleteMany({
+    const result = await prisma.pendingUser.deleteMany({
       where: {
         expiresAt: {
           lt: new Date(), // Less than current time

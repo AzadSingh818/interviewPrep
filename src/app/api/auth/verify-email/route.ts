@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateToken, setAuthCookie } from '@/lib/auth';
 import { sendWelcomeEmail } from '@/lib/email';
+import { UserRole } from '@prisma/client';
+
+function parsePendingUserRole(role: string): UserRole | null {
+  if (role === UserRole.STUDENT || role === UserRole.INTERVIEWER) {
+    return role;
+  }
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find pending user with matching email and OTP
-    const pendingUser = await (prisma as any).pendingUser.findFirst({
+    const pendingUser = await prisma.pendingUser.findFirst({
       where: {
         email,
         verificationToken: otp,
@@ -45,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       // Clean up pending user
-      await (prisma as any).pendingUser.delete({ where: { id: pendingUser.id } });
+      await prisma.pendingUser.delete({ where: { id: pendingUser.id } });
       
       return NextResponse.json(
         { error: 'User already exists. Please login.' },
@@ -53,12 +61,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const pendingRole = parsePendingUserRole(pendingUser.role);
+    if (!pendingRole) {
+      return NextResponse.json(
+        { error: 'Invalid pending user role. Please sign up again.' },
+        { status: 400 }
+      );
+    }
+
     // Create actual user in main users table
-    const user = await (prisma as any).user.create({
+    const user = await prisma.user.create({
       data: {
         email: pendingUser.email,
         passwordHash: pendingUser.passwordHash,
-        role: pendingUser.role,
+        role: pendingRole,
         provider: 'EMAIL',
         emailVerified: true, // Already verified by OTP
         verificationToken: null,
@@ -67,7 +83,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Delete pending user record (no longer needed)
-    await (prisma as any).pendingUser.delete({
+    await prisma.pendingUser.delete({
       where: { id: pendingUser.id },
     });
 

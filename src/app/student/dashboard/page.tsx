@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { PaymentGate } from "@/components/shared/PaymentGate";
+import { PRO_PLAN_PRICE_DISPLAY } from "@/lib/pricing";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -564,46 +565,54 @@ function DashboardInner() {
 
   useEffect(() => {
     fetchData();
-    const onSaved = () => fetchData();
+    const onSaved = () => fetchProfile();
     window.addEventListener("profile-saved", onSaved);
     return () => window.removeEventListener("profile-saved", onSaved);
   }, []);
 
+  const applyProfileData = (data: { user: any; profile: Profile | null }) => {
+    setUser(data.user);
+    setProfile(data.profile);
+    if (data.profile) {
+      const knownRole = targetRoleOptions.some(
+        (opt) => opt.value === data.profile?.targetRole && opt.value !== ""
+      );
+      setFormData({
+        name: data.profile.name || "",
+        college: data.profile.college || "",
+        branch: data.profile.branch || "",
+        graduationYear: data.profile.graduationYear?.toString() || "",
+        targetRole: knownRole
+          ? data.profile.targetRole || ""
+          : data.profile.targetRole
+          ? "Other"
+          : "",
+        targetRoleCustom: knownRole ? "" : data.profile.targetRole || "",
+        experienceLevel: data.profile.experienceLevel || "",
+      });
+    } else {
+      setEditing(true);
+    }
+  };
+
+  const fetchProfile = async () => {
+    const profileRes = await fetch("/api/student/profile");
+    if (profileRes.ok) {
+      applyProfileData(await profileRes.json());
+    }
+  };
+
+  const fetchSessions = async () => {
+    const sessionsRes = await fetch("/api/student/sessions");
+    if (sessionsRes.ok) {
+      const data = await sessionsRes.json();
+      setSessions(data.sessions || []);
+    }
+  };
+
   const fetchData = async () => {
     try {
-      const [profileRes, sessionsRes] = await Promise.all([
-        fetch("/api/student/profile"),
-        fetch("/api/student/sessions"),
-      ]);
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        setUser(data.user);
-        setProfile(data.profile);
-        if (data.profile) {
-          const knownRole = targetRoleOptions.some(
-            (opt) => opt.value === data.profile.targetRole && opt.value !== ""
-          );
-          setFormData({
-            name: data.profile.name || "",
-            college: data.profile.college || "",
-            branch: data.profile.branch || "",
-            graduationYear: data.profile.graduationYear?.toString() || "",
-            targetRole: knownRole
-              ? data.profile.targetRole || ""
-              : data.profile.targetRole
-              ? "Other"
-              : "",
-            targetRoleCustom: knownRole ? "" : data.profile.targetRole || "",
-            experienceLevel: data.profile.experienceLevel || "",
-          });
-        } else {
-          setEditing(true);
-        }
-      }
-      if (sessionsRes.ok) {
-        const d = await sessionsRes.json();
-        setSessions(d.sessions || []);
-      }
+      await Promise.all([fetchProfile(), fetchSessions()]);
     } catch (err) {
       console.error("Failed to fetch data:", err);
     } finally {
@@ -628,7 +637,7 @@ function DashboardInner() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        await fetchData();
+        applyProfileData(await res.json());
         setEditing(false);
       }
     } catch (err) {
@@ -662,7 +671,7 @@ function DashboardInner() {
         body: fd,
       });
       if (res.ok) {
-        await fetchData();
+        await fetchProfile();
         if (fileInputRef.current) fileInputRef.current.value = "";
       } else {
         const d = await res.json();
@@ -681,7 +690,7 @@ function DashboardInner() {
       const res = await fetch("/api/student/upload-resume", {
         method: "DELETE",
       });
-      if (res.ok) await fetchData();
+      if (res.ok) await fetchProfile();
     } catch (err) {
       console.error("Failed to delete resume:", err);
     }
@@ -689,7 +698,7 @@ function DashboardInner() {
 
   const handlePaymentSuccess = () => {
     setShowUpgrade(false);
-    fetchData();
+    fetchProfile();
   };
 
   const getResumeFileName = (url: string) => {
@@ -1148,7 +1157,7 @@ function DashboardInner() {
               Unlock more sessions &amp; priority mentors
             </p>
             <p className="text-xs text-indigo-600 mt-2 font-semibold">
-              Only ₹99/mo
+              Only {PRO_PLAN_PRICE_DISPLAY}/mo
             </p>
           </div>
         </div>

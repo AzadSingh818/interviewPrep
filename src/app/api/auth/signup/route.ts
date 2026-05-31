@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
+import { validatePasswordPolicy } from '@/lib/password-policy';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,10 +26,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate password length
-    if (password.length < 6) {
+    // Validate password strength
+    const passwordPolicy = validatePasswordPolicy(password);
+    if (!passwordPolicy.valid) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
+        { error: passwordPolicy.error },
         { status: 400 }
       );
     }
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if there's already a pending signup for this email
-    const existingPendingUser = await (prisma as any).pendingUser.findUnique({
+    const existingPendingUser = await prisma.pendingUser.findUnique({
       where: { email },
     });
 
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     // Create or update pending user
     if (existingPendingUser) {
       // Update existing pending user with new OTP
-      await (prisma as any).pendingUser.update({
+      await prisma.pendingUser.update({
         where: { email },
         data: {
           passwordHash,
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Create new pending user
-      await (prisma as any).pendingUser.create({
+      await prisma.pendingUser.create({
         data: {
           email,
           passwordHash,

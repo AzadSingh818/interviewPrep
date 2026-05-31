@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
+import { env } from '@/lib/env';
 import crypto from 'crypto';
 
 const MONTHLY_INTERVIEW_LIMIT = 10;
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // ── 1. Verify Razorpay signature ─────────────────────────────────────────
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 

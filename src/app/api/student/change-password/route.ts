@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, verifyPassword, hashPassword } from '@/lib/auth';
+import { validatePasswordPolicy } from '@/lib/password-policy';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,9 +17,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (newPassword.length < 8) {
+    const passwordPolicy = validatePasswordPolicy(newPassword);
+    if (!passwordPolicy.valid) {
       return NextResponse.json(
-        { error: 'New password must be at least 8 characters' },
+        { error: passwordPolicy.error },
         { status: 400 }
       );
     }

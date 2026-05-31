@@ -36,6 +36,31 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value: unknown): string {
+  return escapeHtml(value);
+}
+
+function safeHref(value: string): string {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'https:' || url.protocol === 'http:') {
+      return url.toString();
+    }
+  } catch {
+    return '#';
+  }
+  return '#';
+}
+
 // ─── Table rows builder ───────────────────────────────────────────────────────
 function tableRows(rows: Array<{ label: string; value: string; href?: string; highlight?: boolean }>): string {
   return rows.map((r, i) => {
@@ -43,15 +68,15 @@ function tableRows(rows: Array<{ label: string; value: string; href?: string; hi
     const bg = r.highlight ? '#f0fdf4' : (i % 2 === 0 ? '#ffffff' : '#f8faff');
     const border = isLast ? '' : 'border-bottom:1px solid #ede9fe;';
     const val = r.href
-      ? `<a href="${r.href}" style="color:#7c3aed;text-decoration:none;font-weight:700;border-bottom:2px solid #ede9fe;">${r.value}</a>`
-      : r.value;
+      ? `<a href="${escapeAttribute(safeHref(r.href))}" style="color:#7c3aed;text-decoration:none;font-weight:700;border-bottom:2px solid #ede9fe;">${escapeHtml(r.value)}</a>`
+      : escapeHtml(r.value);
     const labelColor = r.highlight ? '#166534' : '#6b7280';
     const valueColor = r.highlight ? '#15803d' : '#111827';
     return `
       <tr>
         <td style="padding:14px 22px;font-size:13px;color:${labelColor};font-weight:500;
                    background:${bg};${border}width:36%;vertical-align:middle;
-                   border-right:1px solid #ede9fe;">${r.label}</td>
+                   border-right:1px solid #ede9fe;">${escapeHtml(r.label)}</td>
         <td style="padding:14px 22px;font-size:13.5px;color:${valueColor};
                    font-weight:700;background:${bg};${border}vertical-align:middle;">${val}</td>
       </tr>`;
@@ -83,10 +108,10 @@ function buildEmail(opts: {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>${opts.heading}</title>
+  <title>${escapeHtml(opts.heading)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f0f0ff;">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f0f0ff;">${opts.preheader}</div>
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f0f0ff;">${escapeHtml(opts.preheader)}</div>
 
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0ff;padding:48px 16px;">
 <tr><td align="center">
@@ -111,7 +136,7 @@ function buildEmail(opts: {
                             background:rgba(255,255,255,0.15);text-align:center;
                             line-height:72px;font-size:34px;
                             border:2px solid rgba(255,255,255,0.25);">
-                  ${opts.headerEmoji}
+                  ${escapeHtml(opts.headerEmoji)}
                 </td>
               </tr>
             </table>
@@ -137,10 +162,10 @@ function buildEmail(opts: {
           <td style="padding:40px 48px 0;text-align:center;">
             <h1 style="margin:0 0 10px;font-size:30px;font-weight:900;color:#1e1b4b;
                        letter-spacing:-0.8px;line-height:1.2;">
-              ${opts.heading}
+              ${escapeHtml(opts.heading)}
             </h1>
             <p style="margin:0 0 20px;font-size:15px;color:#6b7280;line-height:1.5;">
-              ${opts.subheading}
+              ${escapeHtml(opts.subheading)}
             </p>
             <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
               <tr>
@@ -148,7 +173,7 @@ function buildEmail(opts: {
                             letter-spacing:2px;text-transform:uppercase;
                             background:${opts.badgeBg};color:${opts.badgeFg};
                             border:1.5px solid ${opts.badgeFg}22;">
-                  ${opts.badgeText}
+                  ${escapeHtml(opts.badgeText)}
                 </td>
               </tr>
             </table>
@@ -173,7 +198,7 @@ function buildEmail(opts: {
                   <p style="margin:0 0 5px;font-size:10px;font-weight:800;color:#7c3aed;
                              text-transform:uppercase;letter-spacing:2px;">📅 &nbsp;Date</p>
                   <p style="margin:0;font-size:15px;font-weight:800;color:#1e1b4b;line-height:1.3;">
-                    ${opts.dateStr}
+                    ${escapeHtml(opts.dateStr)}
                   </p>
                 </td>
                 <td style="padding:22px 28px;vertical-align:middle;
@@ -181,10 +206,10 @@ function buildEmail(opts: {
                   <p style="margin:0 0 5px;font-size:10px;font-weight:800;color:#7c3aed;
                              text-transform:uppercase;letter-spacing:2px;">🕐 &nbsp;Time (IST)</p>
                   <p style="margin:0 0 3px;font-size:16px;font-weight:900;color:#1e1b4b;">
-                    ${opts.startTimeStr}
+                    ${escapeHtml(opts.startTimeStr)}
                   </p>
                   <p style="margin:0;font-size:12px;color:#7c3aed;font-weight:600;">
-                    ↳ ends at &nbsp;${opts.endTimeStr}
+                    ↳ ends at &nbsp;${escapeHtml(opts.endTimeStr)}
                   </p>
                 </td>
               </tr>
@@ -201,7 +226,7 @@ function buildEmail(opts: {
                 <td style="font-size:10px;font-weight:800;color:#7c3aed;
                            text-transform:uppercase;letter-spacing:2px;
                            padding-bottom:10px;border-bottom:2px solid #ede9fe;">
-                  ${opts.section1Heading}
+                  ${escapeHtml(opts.section1Heading)}
                 </td>
               </tr>
             </table>
@@ -223,7 +248,7 @@ function buildEmail(opts: {
                 <td style="font-size:10px;font-weight:800;color:#7c3aed;
                            text-transform:uppercase;letter-spacing:2px;
                            padding-bottom:10px;border-bottom:2px solid #ede9fe;">
-                  ${opts.section2Heading}
+                  ${escapeHtml(opts.section2Heading)}
                 </td>
               </tr>
             </table>
@@ -249,7 +274,7 @@ function buildEmail(opts: {
               <tr>
                 <td style="padding:18px 24px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);
                             font-size:13.5px;color:#166534;line-height:1.65;">
-                  💡 &nbsp;<strong>Note:</strong> ${opts.tipText}
+                  💡 &nbsp;<strong>Note:</strong> ${escapeHtml(opts.tipText)}
                 </td>
               </tr>
             </table>
@@ -269,7 +294,7 @@ function buildEmail(opts: {
       <p style="margin:0 0 8px;font-size:16px;font-weight:800;color:#ffffff;">
         InterviewPrep<span style="color:#c4b5fd;">Live</span>
       </p>
-      <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.55);">${opts.footerText}</p>
+      <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.55);">${escapeHtml(opts.footerText)}</p>
       <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">
         © ${year} InterviewPrepLive. All rights reserved.
       </p>
@@ -518,47 +543,10 @@ export async function sendSessionReminderEmail(data: BookingEmailData & { recipi
   }
 }
 
-// ─── Schedule reminder for both student and interviewer ──────────────────────
-export function scheduleSessionReminder(data: BookingEmailData): void {
-  const sessionStart  = new Date(data.scheduledTime);
-  const reminderTime  = new Date(sessionStart.getTime() - 30 * 60_000); // 30 min before
-  const now           = new Date();
-  const delayMs       = reminderTime.getTime() - now.getTime();
-
-  // Only schedule if reminder time is in the future (at least 1 min away)
-  if (delayMs < 60_000) {
-    console.log('⏭️ Reminder skipped — session is too soon or already past');
-    return;
-  }
-
-  console.log(`⏰ Reminder scheduled in ${Math.round(delayMs / 60_000)} minutes for session at ${sessionStart.toISOString()}`);
-
-  setTimeout(() => {
-    const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
-    console.log(`🔔 Sending reminders for session at ${sessionStart.toISOString()}`);
-
-    // Send to student
-    sendSessionReminderEmail({
-      ...data,
-      recipientEmail: data.studentEmail,
-      recipientName:  data.studentName,
-      recipientRole:  'student',
-    }).catch(err => console.error('Student reminder failed:', err));
-
-    // Send to interviewer
-    sendSessionReminderEmail({
-      ...data,
-      recipientEmail: data.interviewerEmail,
-      recipientName:  data.interviewerName,
-      recipientRole:  'interviewer',
-    }).catch(err => console.error('Interviewer reminder failed:', err));
-
-  }, delayMs);
-}
-
 // ─── Verification email ───────────────────────────────────────────────────────
 export async function sendVerificationEmail(email: string, otp: string): Promise<void> {
   const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const safeAppName = escapeHtml(appName);
   const year = new Date().getFullYear();
 
   const html = `<!DOCTYPE html>
@@ -621,7 +609,7 @@ export async function sendVerificationEmail(email: string, otp: string): Promise
         If you did not create an account, please ignore this email.
       </p>
       <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.3);">
-        © ${year} ${appName}. All rights reserved.
+        © ${year} ${safeAppName}. All rights reserved.
       </p>
     </td>
   </tr>
@@ -650,6 +638,8 @@ export async function sendVerificationEmail(email: string, otp: string): Promise
 // ─── Welcome email ────────────────────────────────────────────────────────────
 export async function sendWelcomeEmail(email: string, name: string): Promise<void> {
   const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const safeAppName = escapeHtml(appName);
+  const safeName = escapeHtml(name);
   const year = new Date().getFullYear();
 
   const html = `<!DOCTYPE html>
@@ -676,7 +666,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
     <td style="background:#ffffff;padding:52px 48px;text-align:center;">
       <p style="font-size:64px;margin:0 0 20px;line-height:1;">🎉</p>
       <h1 style="margin:0 0 14px;font-size:28px;font-weight:900;color:#1e1b4b;letter-spacing:-0.5px;">
-        Welcome aboard, ${name}!
+        Welcome aboard, ${safeName}!
       </h1>
       <p style="margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.7;">
         Your email has been verified successfully.<br/>
@@ -705,7 +695,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
   <tr>
     <td style="background:linear-gradient(135deg,#1e1b4b,#312e81);padding:24px 48px;text-align:center;">
       <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">
-        © ${year} ${appName}. All rights reserved.
+        © ${year} ${safeAppName}. All rights reserved.
       </p>
     </td>
   </tr>
@@ -897,7 +887,13 @@ export async function sendManualBookingReceivedToStudent(
   data: ManualBookingReceivedData
 ): Promise<void> {
   const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const safeAppName = escapeHtml(appName);
+  const safeStudentName = escapeHtml(data.studentName);
+  const safePreferredInterviewerName = data.preferredInterviewerName
+    ? escapeHtml(data.preferredInterviewerName)
+    : '';
   const sessionLabel = data.sessionType === 'INTERVIEW' ? 'Mock Interview' : 'Guidance Session';
+  const safeSessionLabel = escapeHtml(sessionLabel);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -924,7 +920,7 @@ export async function sendManualBookingReceivedToStudent(
         Request Received!
       </h1>
       <p style="font-size:15px;color:#4b5563;line-height:1.7;margin:0 0 28px;">
-        Hi <strong>${data.studentName}</strong>, your <strong>${sessionLabel}</strong> request
+        Hi <strong>${safeStudentName}</strong>, your <strong>${safeSessionLabel}</strong> request
         has been received. Our admin team will review and assign the best interviewer for you shortly.
       </p>
       <table width="100%" cellpadding="0" cellspacing="0"
@@ -946,7 +942,7 @@ export async function sendManualBookingReceivedToStudent(
           </td>
           <td style="padding:14px 20px;background:#fff;font-size:14px;
                      color:#111827;font-weight:700;border-bottom:1px solid #ede9fe;">
-            ${sessionLabel}
+            ${safeSessionLabel}
           </td>
         </tr>
         ${data.preferredInterviewerName ? `
@@ -957,7 +953,7 @@ export async function sendManualBookingReceivedToStudent(
           </td>
           <td style="padding:14px 20px;background:#f8faff;font-size:14px;
                      color:#111827;font-weight:700;">
-            ${data.preferredInterviewerName}
+            ${safePreferredInterviewerName}
           </td>
         </tr>` : ''}
       </table>
@@ -977,7 +973,7 @@ export async function sendManualBookingReceivedToStudent(
   <tr>
     <td style="background:#1e1b4b;padding:20px 48px;text-align:center;">
       <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);">
-        © ${new Date().getFullYear()} ${appName}. All rights reserved.
+        © ${new Date().getFullYear()} ${safeAppName}. All rights reserved.
       </p>
     </td>
   </tr>
@@ -1005,7 +1001,10 @@ export async function sendManualBookingAssignedToStudent(
   data: ManualBookingAssignedData
 ): Promise<void> {
   const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const safeAppName = escapeHtml(appName);
+  const safeStudentName = escapeHtml(data.studentName);
   const sessionLabel = data.sessionType === 'INTERVIEW' ? 'Mock Interview' : 'Guidance Session';
+  const safeSessionLabel = escapeHtml(sessionLabel);
 
   const start = new Date(data.scheduledTime);
   const end   = new Date(start.getTime() + data.durationMinutes * 60_000);
@@ -1055,9 +1054,9 @@ export async function sendManualBookingAssignedToStudent(
       const border = i < rows.length - 1 ? 'border-bottom:1px solid #ede9fe;' : '';
       return `<tr>
         <td style="padding:13px 20px;background:${bg};font-size:13px;color:#6b7280;
-                   font-weight:500;width:38%;border-right:1px solid #ede9fe;${border}">${r.label}</td>
+                   font-weight:500;width:38%;border-right:1px solid #ede9fe;${border}">${escapeHtml(r.label)}</td>
         <td style="padding:13px 20px;background:${bg};font-size:13.5px;color:#111827;
-                   font-weight:700;${border}">${r.value}</td>
+                   font-weight:700;${border}">${escapeHtml(r.value)}</td>
       </tr>`;
     }).join('');
 
@@ -1086,8 +1085,8 @@ export async function sendManualBookingAssignedToStudent(
         Interviewer Assigned!
       </h1>
       <p style="font-size:14px;color:#4b5563;line-height:1.7;text-align:center;margin:0 0 28px;">
-        Hi <strong>${data.studentName}</strong>, great news! Admin has assigned your
-        <strong>${sessionLabel}</strong>. Here are your session details:
+        Hi <strong>${safeStudentName}</strong>, great news! Admin has assigned your
+        <strong>${safeSessionLabel}</strong>. Here are your session details:
       </p>
 
       <p style="font-size:13px;font-weight:700;color:#6d28d9;text-transform:uppercase;
@@ -1119,7 +1118,7 @@ export async function sendManualBookingAssignedToStudent(
   <tr>
     <td style="background:#1e1b4b;padding:20px 48px;text-align:center;">
       <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);">
-        © ${new Date().getFullYear()} ${appName}. All rights reserved.
+        © ${new Date().getFullYear()} ${safeAppName}. All rights reserved.
       </p>
     </td>
   </tr>

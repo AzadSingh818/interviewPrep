@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
+import { env } from '@/lib/env';
+import { PRO_PLAN_AMOUNT_PAISE } from '@/lib/pricing';
 import Razorpay from 'razorpay';
 export const dynamic = 'force-dynamic';
-
-const PLAN_AMOUNT_PAISE = 100; // ₹1 in paise
 
 export async function POST() {
   try {
     const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
+      key_id: env.RAZORPAY_KEY_ID,
+      key_secret: env.RAZORPAY_KEY_SECRET,
     });
 
     const { userId } = await requireAuth(['STUDENT']);
@@ -28,7 +28,7 @@ export async function POST() {
 
     // Create Razorpay order
     const order = await razorpay.orders.create({
-      amount: PLAN_AMOUNT_PAISE,
+      amount: PRO_PLAN_AMOUNT_PAISE,
       currency: 'INR',
       receipt: `receipt_student_${studentProfile.id}_${Date.now()}`,
       notes: {
@@ -42,7 +42,7 @@ export async function POST() {
       data: {
         studentId: studentProfile.id,
         razorpayOrderId: order.id,
-        amount: PLAN_AMOUNT_PAISE,
+        amount: PRO_PLAN_AMOUNT_PAISE,
         currency: 'INR',
         status: 'PENDING',
         planType: 'PRO',
@@ -51,9 +51,9 @@ export async function POST() {
 
     return NextResponse.json({
       orderId: order.id,
-      amount: PLAN_AMOUNT_PAISE,
+      amount: PRO_PLAN_AMOUNT_PAISE,
       currency: 'INR',
-      keyId: process.env.RAZORPAY_KEY_ID,
+      keyId: env.RAZORPAY_KEY_ID,
     });
   } catch (error: any) {
     console.error('Create order error:', error);

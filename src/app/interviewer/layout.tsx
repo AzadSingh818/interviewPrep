@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { validatePasswordPolicy } from '@/lib/password-policy';
 
 // ─── Dark Mode Hook ───────────────────────────────────────────────────────────
 function useDarkMode() {
@@ -92,7 +93,8 @@ function SettingsModal({
     e.preventDefault();
     setPwStatus(null);
     if (pwForm.next !== pwForm.confirm) { setPwStatus({ type: 'error', msg: 'New passwords do not match' }); return; }
-    if (pwForm.next.length < 8)         { setPwStatus({ type: 'error', msg: 'Password must be at least 8 characters' }); return; }
+    const passwordPolicy = validatePasswordPolicy(pwForm.next);
+    if (!passwordPolicy.valid)          { setPwStatus({ type: 'error', msg: passwordPolicy.error || 'Password does not meet requirements' }); return; }
     setPwLoading(true);
     try {
       const res = await fetch('/api/interviewer/change-password', {
@@ -324,7 +326,7 @@ function SettingsModal({
               ) : (
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Update your login password. Must be at least 8 characters.
+                    Update your login password. Use at least 8 characters with a letter and a number.
                   </p>
                   <div>
                     <label className={labelCls}>Current Password</label>

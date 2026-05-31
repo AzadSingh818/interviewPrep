@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { useToast } from '@/components/ui/Toast';
 import { PaymentGate, UsageBanner } from '@/components/shared/PaymentGate';
 
 declare global { interface Window { Razorpay: any; } }
@@ -493,6 +494,7 @@ function InterviewerPickerModal({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BookInterviewPage() {
   const router = useRouter();
+  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     role: '',
@@ -594,7 +596,7 @@ export default function BookInterviewPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(`Interview booked with ${data.assignedInterviewer?.name ?? 'an interviewer'}!`);
+        toast(`Interview booked with ${data.assignedInterviewer?.name ?? 'an interviewer'}!`, 'success');
         router.push('/student/sessions');
       } else if (data.error === 'LIMIT_REACHED') {
         setLimitReached(true);
@@ -641,7 +643,7 @@ export default function BookInterviewPage() {
       const data = await res.json();
       if (res.ok) {
         setShowPickerModal(false);
-        alert('Request submitted! Admin will assign your interviewer soon. Check your email for confirmation.');
+        toast('Request submitted! Admin will assign your interviewer soon. Check your email for confirmation.', 'success');
         router.push('/student/sessions');
       } else {
         setManualError(data.error || 'Failed to submit request.');

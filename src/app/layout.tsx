@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Outfit, DM_Sans } from 'next/font/google';
+import { ToastProvider } from '@/components/ui/Toast';
 import './globals.css';
 
 const inter = Inter({
@@ -18,6 +19,17 @@ const dmSans = DM_Sans({
   variable: '--font-dm-sans',
 });
 
+const themeScript = `
+(() => {
+  try {
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const enabled = saved === 'dark' || (!saved && prefersDark);
+    document.documentElement.classList.toggle('dark', enabled);
+  } catch {}
+})();
+`;
+
 export const metadata: Metadata = {
   title: 'InterviewPrep Live - Master Your Next Interview',
   description: 'Live 1-to-1 interview preparation with industry experts',
@@ -35,11 +47,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${inter.variable} ${outfit.variable} ${dmSans.variable} font-sans antialiased overflow-x-hidden`}
       >
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

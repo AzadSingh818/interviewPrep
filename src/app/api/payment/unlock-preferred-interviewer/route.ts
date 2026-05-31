@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
+import { env } from '@/lib/env';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Verify Razorpay signature
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
@@ -32,7 +33,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the pending ManualBookingRequest with this order
+    const featureUnlock = await prisma.featureUnlock.findUnique({
+      where: { razorpayOrderId: razorpay_order_id },
+      include: { student: true },
+    });
+
+    if (featureUnlock) {
+      if (featureUnlock.student.userId !== userId) {
+        return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 });
+      }
+
+      if (featureUnlock.paymentStatus === 'PAID') {
+        return NextResponse.json({ success: true, alreadyProcessed: true });
+      }
+
+      await prisma.$transaction([
+        prisma.featureUnlock.update({
+          where: { id: featureUnlock.id },
+          data: {
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+            paymentStatus: 'PAID',
+          },
+        }),
+        prisma.studentProfile.update({
+          where: { id: featureUnlock.studentId },
+          data: { preferredInterviewerUnlocked: true },
+        }),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Feature unlocked! You can now choose your preferred interviewer.',
+      });
+    }
+
+    // Legacy fallback for unlock orders created before FeatureUnlock existed.
     const pendingRequest = await prisma.manualBookingRequest.findFirst({
       where: { razorpayOrderId: razorpay_order_id },
       include: { studentProfile: true },

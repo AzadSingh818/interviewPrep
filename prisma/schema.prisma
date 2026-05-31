@@ -48,6 +48,7 @@ model StudentProfile {
   planType                       PlanType                  @default(FREE) @map("plan_type")
   resumeUrl                      String?                   @map("resume_url")
   preferredInterviewerUnlocked   Boolean                   @default(false) @map("preferred_interviewer_unlocked")
+  featureUnlocks                 FeatureUnlock[]
   manualBookingRequests          ManualBookingRequest[]
   sessions                       Session[]
   user                           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -202,6 +203,24 @@ model ManualBookingRequest {
   @@map("manual_booking_requests")
 }
 
+model FeatureUnlock {
+  id                Int               @id @default(autoincrement())
+  studentId         Int               @map("student_id")
+  feature           FeatureUnlockType @default(PREFERRED_INTERVIEWER)
+  razorpayOrderId   String            @unique @map("razorpay_order_id")
+  razorpayPaymentId String?           @unique @map("razorpay_payment_id")
+  razorpaySignature String?           @map("razorpay_signature")
+  amount            Int
+  currency          String            @default("INR")
+  paymentStatus     PaymentStatus     @default(PENDING) @map("payment_status")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  student           StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("feature_unlocks")
+}
+
 model SignalingRoom {
   id                   String   @id  // sessionId as string
   offer                Json?
@@ -292,4 +311,8 @@ enum ManualBookingStatus {
   PENDING
   ASSIGNED
   CANCELLED
+}
+
+enum FeatureUnlockType {
+  PREFERRED_INTERVIEWER
 }

@@ -108,22 +108,6 @@ async function getOrCreateRoom(sessionId: string) {
   });
 }
 
-// Auto-clean rooms older than 4 hours (best-effort, non-blocking)
-function scheduleCleanup(sessionId: string) {
-  setTimeout(async () => {
-    try {
-      await prisma.signalingRoom.deleteMany({
-        where: {
-          id: sessionId,
-          createdAt: { lt: new Date(Date.now() - 4 * 60 * 60 * 1000) },
-        },
-      });
-    } catch {
-      // ignore
-    }
-  }, 4 * 60 * 60 * 1000);
-}
-
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -220,7 +204,6 @@ export async function POST(request: NextRequest) {
             updatedAt: new Date(),
           },
         });
-        scheduleCleanup(sessionId);
         return NextResponse.json({ success: true });
       }
 

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import { useToast } from "@/components/ui/Toast";
 
 // ─── Interview type display labels ────────────────────────────────────────────
 const INTERVIEW_TYPE_LABELS: Record<string, string> = {
@@ -178,9 +180,11 @@ function ProfileHeader({
         {/* Avatar */}
         <div className="relative shrink-0">
           {photoReady ? (
-            <img
+            <Image
               src={user.profilePicture}
               alt={displayName}
+              width={96}
+              height={96}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-white dark:border-slate-900 shadow-lg"
             />
           ) : (
@@ -418,6 +422,7 @@ function DocumentUploadSection({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function InterviewerDashboardPage() {
+  const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -548,7 +553,7 @@ export default function InterviewerDashboardPage() {
           window.dispatchEvent(new Event("profile-saved"));
         }
       } else {
-        alert(data.error || "Failed to save profile");
+        toast(data.error || "Failed to save profile", "error");
       }
     } catch (error) {
       console.error("Failed to save profile:", error);

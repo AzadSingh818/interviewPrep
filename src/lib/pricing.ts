@@ -1,0 +1,6 @@
+export const PRO_PLAN_AMOUNT_PAISE = 9900;
+export const PRO_PLAN_PRICE_RUPEES = PRO_PLAN_AMOUNT_PAISE / 100;
+export const PRO_PLAN_PRICE_DISPLAY = `₹${PRO_PLAN_PRICE_RUPEES}`;
+export const PRO_PLAN_PERIOD_LABEL = 'month';
+export const PRO_PLAN_DESCRIPTION = `Pro Plan — ${PRO_PLAN_PRICE_DISPLAY}/${PRO_PLAN_PERIOD_LABEL} (10 Interviews + 10 Guidance)`;
+

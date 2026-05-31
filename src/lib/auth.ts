@@ -2,16 +2,13 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
+import { env } from './env';
 import { UserRole } from '@prisma/client';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('Server misconfigured: JWT_SECRET is not set');
-  }
-  return secret;
+  return env.JWT_SECRET;
 }
 
 export interface JWTPayload {
