@@ -19,7 +19,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <select
           ref={ref}
           className={cn(
-            'w-full min-h-11 px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-base sm:text-sm text-slate-900 dark:text-slate-50',
+            'w-full min-h-11 px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 text-base text-slate-900 dark:text-slate-50',
             'focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200',
             'touch-manipulation',
             'disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:text-slate-500 dark:disabled:text-slate-500',

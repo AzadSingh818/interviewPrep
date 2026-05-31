@@ -225,7 +225,7 @@ export default function StudentSessionsPage() {
                   {session.feedback && (
                     <div className="shrink-0">
                       <Link href={`/student/feedback/${session.id}`}>
-                        <button className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                        <button className="w-full sm:w-auto min-h-11 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium touch-manipulation">
                           View Feedback
                         </button>
                       </Link>

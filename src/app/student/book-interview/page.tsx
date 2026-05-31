@@ -169,11 +169,11 @@ function UnlockModal({
               <h2 className="text-xl sm:text-2xl font-black text-white mb-1">🎯 Choose Your Interviewer</h2>
               <p className="text-sm text-white/60">Unlock for <span className="font-bold text-violet-300">₹50</span> to pick a company-specific interviewer</p>
             </div>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all text-lg font-bold">✕</button>
+            <button onClick={onClose} className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all text-lg font-bold touch-manipulation">✕</button>
           </div>
 
           <div className="relative mb-6">
-            <div className="space-y-3 max-h-52 overflow-y-auto pr-1" style={{ filter: 'blur(3px)', userSelect: 'none', pointerEvents: 'none' }}>
+            <div className="space-y-3 max-h-52 overflow-y-auto pr-1" style={{ userSelect: 'none', pointerEvents: 'none' }}>
               {interviewers.slice(0, 5).map((iv) => (
                 <div key={iv.id} className="flex items-center gap-3 bg-white/10 rounded-2xl p-3">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{iv.name.charAt(0)}</div>
@@ -305,7 +305,7 @@ function InterviewerPickerModal({
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
               {step === 2 && (
-                <button onClick={() => setStep(1)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-sm font-bold">←</button>
+                <button onClick={() => setStep(1)} className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all text-base font-bold touch-manipulation">←</button>
               )}
               <div>
                 <h2 className="text-xl font-black text-slate-900 dark:text-white">
@@ -320,7 +320,7 @@ function InterviewerPickerModal({
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-white transition-all text-lg font-bold">✕</button>
+            <button onClick={onClose} className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-white transition-all text-lg font-bold touch-manipulation">✕</button>
           </div>
 
           {/* Step indicator */}
@@ -334,7 +334,7 @@ function InterviewerPickerModal({
             <>
               <input type="text" placeholder="Search by name, company, or role…" value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80" />
+                className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-base text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80" />
 
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1 mb-5">
                 {filtered.length === 0 && <p className="text-center text-slate-400 text-sm py-6">No interviewers match your search.</p>}
@@ -407,7 +407,7 @@ function InterviewerPickerModal({
                         setForm((prev) => ({ ...prev, role: val }));
                       }
                     }}
-                    className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
+                    className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
                   >
                     <option value="">Select a role</option>
                     {TARGET_ROLES.map((role) => (
@@ -424,7 +424,7 @@ function InterviewerPickerModal({
                       }}
                       autoFocus
                       placeholder="Please describe your target role…"
-                      className="mt-2 w-full border border-indigo-300 dark:border-indigo-400/30 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
+                      className="mt-2 w-full border border-indigo-300 dark:border-indigo-400/30 rounded-xl px-3 py-2.5 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
                     />
                   )}
                 </div>
@@ -434,7 +434,7 @@ function InterviewerPickerModal({
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Difficulty Level</label>
                     <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
-                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80">
+                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80">
                       <option value="">Select…</option>
                       <option value="INTERN">Intern</option>
                       <option value="ENTRY">Entry</option>
@@ -445,7 +445,7 @@ function InterviewerPickerModal({
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Interview Type</label>
                     <select value={form.interviewType} onChange={(e) => setForm({ ...form, interviewType: e.target.value })}
-                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80">
+                      className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80">
                       <option value="">Select…</option>
                       <option value="TECHNICAL">Technical</option>
                       <option value="HR">HR / Behavioral</option>
@@ -461,7 +461,7 @@ function InterviewerPickerModal({
                     value={form.scheduledTime}
                     min={minDateTime}
                     onChange={(e) => setForm({ ...form, scheduledTime: e.target.value })}
-                    className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
+                    className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
                   />
                 </div>
               </div>
@@ -738,7 +738,7 @@ export default function BookInterviewPage() {
                     setFormData((prev) => ({ ...prev, role: '' }));
                   }
                 }}
-                className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
+                className="w-full border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
                 required
               >
                 <option value="">Select a role</option>
@@ -757,7 +757,7 @@ export default function BookInterviewPage() {
                     setCustomRole(e.target.value);
                     setFormData((prev) => ({ ...prev, role: e.target.value }));
                   }}
-                  className="mt-2 w-full border border-indigo-300 dark:border-indigo-400/30 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
+                  className="mt-2 w-full border border-indigo-300 dark:border-indigo-400/30 rounded-xl px-3 py-2.5 text-base text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white dark:bg-slate-900/80"
                   required
                 />
               )}

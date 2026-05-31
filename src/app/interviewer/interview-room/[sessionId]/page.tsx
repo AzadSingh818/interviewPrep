@@ -450,8 +450,12 @@ export default function InterviewerInterviewRoom() {
       const data = await res.json();
       if (data.score !== undefined) {
         setBehaviorReport(data);
-        if (manual) setIsBehaviorOpen(true);
+        if (manual) {
+          setIsNotesOpen(false);
+          setIsBehaviorOpen(true);
+        }
         if (data.flag === "red" && !manual) {
+          setIsNotesOpen(false);
           setIsBehaviorOpen(true);
           addSystemMessage("⚠️ Admin alert: Behavior concern detected.");
         }
@@ -533,7 +537,13 @@ export default function InterviewerInterviewRoom() {
             )}
             {behaviorReport && (
               <button
-                onClick={() => setIsBehaviorOpen((o) => !o)}
+                onClick={() =>
+                  setIsBehaviorOpen((open) => {
+                    const next = !open;
+                    if (next) setIsNotesOpen(false);
+                    return next;
+                  })
+                }
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all ${flagBg[behaviorReport.flag]} ${flagColor[behaviorReport.flag]}`}
               >
                 <span>{flagEmoji[behaviorReport.flag]}</span>
@@ -541,7 +551,13 @@ export default function InterviewerInterviewRoom() {
               </button>
             )}
             <button
-              onClick={() => setIsNotesOpen((o) => !o)}
+              onClick={() =>
+                setIsNotesOpen((open) => {
+                  const next = !open;
+                  if (next) setIsBehaviorOpen(false);
+                  return next;
+                })
+              }
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${isNotesOpen ? "bg-amber-500/20 border border-amber-500/40 text-amber-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             >
               <NoteIcon />
@@ -703,7 +719,14 @@ export default function InterviewerInterviewRoom() {
           <ControlBtn on={isCameraOn} onClick={toggleCamera} onIcon={<CamOnIcon />} offIcon={<CamOffIcon />} title={isCameraOn ? "Turn off camera" : "Turn on camera"} />
           <button onClick={() => setIsChatOpen((o) => !o)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isChatOpen ? "bg-amber-600" : "bg-gray-700 hover:bg-gray-600"}`} title="Toggle chat"><ChatIcon /></button>
           <button
-            onClick={() => { setIsBehaviorOpen((o) => !o); if (!behaviorReport) runBehaviorAnalysis(true); }}
+            onClick={() => {
+              setIsBehaviorOpen((open) => {
+                const next = !open;
+                if (next) setIsNotesOpen(false);
+                return next;
+              });
+              if (!behaviorReport) runBehaviorAnalysis(true);
+            }}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isBehaviorOpen ? "bg-blue-600" : behaviorReport?.flag === "red" ? "bg-red-500/20 border border-red-500 text-red-400" : behaviorReport?.flag === "yellow" ? "bg-yellow-500/20 border border-yellow-500 text-yellow-400" : "bg-gray-700 hover:bg-gray-600"}`}
             title="Conduct Monitor"
           ><ShieldIcon /></button>
@@ -714,7 +737,7 @@ export default function InterviewerInterviewRoom() {
       </div>
 
       {isChatOpen && (
-        <div className="fixed inset-x-2 bottom-2 z-40 h-[56dvh] max-h-[30rem] md:static md:inset-auto md:h-auto md:max-h-none md:w-80">
+        <div className="fixed inset-x-2 bottom-2 z-40 h-[56dvh] max-h-[calc(100dvh-10rem)] sm:max-h-[30rem] md:static md:inset-auto md:h-auto md:max-h-none md:w-80">
           <ChatPanel
             messages={chatMessages}
             input={chatInput}

@@ -279,7 +279,7 @@ export default function InterviewerSessionsPage() {
                     )}
                     {!session.feedback && (
                       <Link href={`/interviewer/feedback/${session.id}`}>
-                        <button className="shrink-0 px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs sm:text-sm font-medium">
+                        <button className="shrink-0 min-h-11 px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs sm:text-sm font-medium touch-manipulation">
                           Submit Feedback
                         </button>
                       </Link>

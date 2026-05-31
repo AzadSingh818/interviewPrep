@@ -555,7 +555,7 @@ export default function StudentInterviewRoom() {
       </div>
 
       {isChatOpen && (
-        <div className="fixed inset-x-2 bottom-2 z-40 h-[56dvh] max-h-[30rem] md:static md:inset-auto md:h-auto md:max-h-none md:w-80">
+        <div className="fixed inset-x-2 bottom-2 z-40 h-[56dvh] max-h-[calc(100dvh-10rem)] sm:max-h-[30rem] md:static md:inset-auto md:h-auto md:max-h-none md:w-80">
           <ChatPanel
             messages={chatMessages}
             input={chatInput}
