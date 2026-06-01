@@ -13,6 +13,7 @@
       "memory": 1024
     }
   },
+  "_comment": "Cleanup cron schedules are set to daily for Hobby; revert to the previous schedules after upgrading to Pro.",
   "crons": [
     {
       "path": "/api/cron/session-reminders",
@@ -20,11 +21,11 @@
     },
     {
       "path": "/api/cron/cleanup-signaling-rooms",
-      "schedule": "*/30 * * * *"
+      "schedule": "15 3 * * *"
     },
     {
       "path": "/api/cron/cleanup-pending-users",
-      "schedule": "0 * * * *"
+      "schedule": "45 3 * * *"
     }
   ]
 }

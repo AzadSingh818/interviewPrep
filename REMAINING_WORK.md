@@ -14,6 +14,7 @@ Operational launch checklist before production:
 2. Set real `CRON_SECRET` and `RAZORPAY_WEBHOOK_SECRET` in production.
 3. Configure the Razorpay dashboard webhook to call `/api/webhooks/razorpay`.
 4. Smoke test one paid subscription, one preferred-interviewer unlock, one logout, and one cron call in staging.
+5. Cleanup crons are temporarily set to daily for Hobby; revert to the prior schedules after upgrading to Pro.
 
 Estimated effort: 1-2 hours.
 
