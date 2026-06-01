@@ -2,221 +2,72 @@
 
 Verification date: 2026-06-01
 
-This is a fresh audit of the current codebase after remediation, not a restatement of the original audit.
+This is the post-fix reaudit after independently applying the fixes that could be completed in code.
 
 ## Executive Summary
 
-Several narrow fixes landed correctly, especially pricing, OAuth role preservation, LinkedIn SSRF shutdown, HTML escaping, Groq timeout handling, and video ref guards. However, the codebase is still not production-safe because payment webhooks, rate limiting, CSRF protection, JWT invalidation, scheduled cron execution, durable email delivery, and the realtime architecture remain unresolved.
+The launch-blocking payment, logout, auth throttling, cron scheduling, JWT invalidation, upload validation, CSP/header, and root error-boundary gaps have been addressed in code. The production build passes. The remaining high-risk items are architectural or operational: database-backed WebRTC signaling, durable email retry/observability, real deployment secrets, and missing regression tests.
 
-## P0 Findings
+## Fixed Since Prior Report
 
-### P0-1. Missing Razorpay Webhook
+- Razorpay webhook implemented with raw-body HMAC verification, event persistence, duplicate handling, and shared idempotent payment processors. Evidence: `src/app/api/webhooks/razorpay/route.ts:10-127`, `src/lib/payments.ts:6-173`, `prisma/schema.prisma:239-255`.
+- Client payment verification now uses the same shared processors as webhooks. Evidence: `src/app/api/payment/verify/route.ts:51-93`, `src/app/api/payment/unlock-preferred-interviewer/route.ts:50-69`.
+- Logout route exists and invalidates existing JWTs by incrementing `tokenVersion`. Evidence: `src/app/api/auth/logout/route.ts:5-30`.
+- JWTs now carry `tokenVersion`, and `requireAuth` validates user email, role, and token version against the database. Evidence: `src/lib/auth.ts:10-15`, `src/lib/auth.ts:112-138`, `prisma/schema.prisma:24`.
+- Basic Origin/Sec-Fetch-Site CSRF guard is enforced in `requireAuth`. Evidence: `src/lib/auth.ts:71-104`.
+- Auth rate limiting is backed by Prisma buckets and applied to login, signup, resend OTP, and verify email. Evidence: `src/lib/rate-limit.ts:37-64`, `src/app/api/auth/login/route.ts:18-25`.
+- Cron routes are scheduled in `vercel.json`, and cleanup now protects scheduled sessions and uses the matching `updatedAt` index. Evidence: `vercel.json:16-29`, `src/app/api/cron/cleanup-signaling-rooms/route.ts:16-32`, `prisma/migrations/20260601000100_security_runtime_hardening/migration.sql`.
+- File uploads now validate magic bytes before upload and avoid deleting old interviewer documents until DB update succeeds. Evidence: `src/lib/file-validation.ts`, `src/app/api/interviewer/upload-documents/route.ts:129-194`.
+- CSP and security headers are configured. Evidence: `next.config.js:24-62`.
 
-Payment entitlements still depend on the browser calling client verification endpoints.
+## Remaining P0 Findings
 
-Evidence:
+None found in the current codebase after this batch.
 
-- Subscription verification route: `src/app/api/payment/verify/route.ts:10-171`.
-- Unlock verification route: `src/app/api/payment/unlock-preferred-interviewer/route.ts:9-118`.
-- No webhook route exists under `src/app/api/webhooks`.
-- No webhook event table exists in `prisma/schema.prisma`.
+## Remaining P1 Findings
 
-Risk: a captured payment can fail to grant access if the user closes the browser or verify races/fails.
+### P1-1. Postgres WebRTC Signaling Still Races And Does Not Scale
 
-Recommended action: implement `POST /api/webhooks/razorpay`, verify raw-body signature, persist event ids, and process subscription/unlock payments idempotently in transactions.
+Evidence: signaling data is still stored as JSON arrays in `prisma/schema.prisma:225-236`; the room API still uses JSON read/append/write behavior; clients still poll room state.
 
-### P0-2. Logout Endpoint Missing
+Risk: lost ICE candidates/messages under concurrency, high DB load, and unreliable calls.
 
-The frontend calls `/api/auth/logout`, but no route exists.
+Recommended action: migrate signaling to LiveKit/Ably/Pusher, or implement append-only signaling events with atomic inserts as an interim.
 
-Evidence:
+### P1-2. Email Delivery Is Not Durable
 
-- Student logout call: `src/app/student/layout.tsx:368`.
-- Interviewer logout call: `src/app/interviewer/layout.tsx:435`.
-- Existing auth routes do not include `src/app/api/auth/logout/route.ts`.
-- Cookie removal helper exists but is unused by an API route: `src/lib/auth.ts:73-76`.
+Evidence: reminder sends now throw and the scheduler resets `reminderSent` on failure, but there is still no persistent email job table, retry counter, backoff, or alerting.
 
-Risk: users may believe they logged out while the auth cookie remains valid.
+Risk: SMTP or provider outages can still silently delay important lifecycle email.
 
-Recommended action: add `POST /api/auth/logout/route.ts` that calls `removeAuthCookie()` and returns success.
+Recommended action: add `EmailJob` persistence, retry/backoff cron processing, and monitoring for failed jobs.
 
-### P0-3. No Auth Rate Limiting
+### P1-3. CSRF Guard Is A Baseline, Not A Full Token Defense
 
-Login, resend OTP, and verify OTP remain unthrottled.
+Evidence: `requireAuth` validates Origin/Sec-Fetch-Site at `src/lib/auth.ts:71-104`, but no double-submit CSRF token exists.
 
-Evidence:
+Risk: older clients, unusual proxies, or missing Origin/Sec-Fetch-Site headers reduce assurance.
 
-- Login flow has no limiter: `src/app/api/auth/login/route.ts`.
-- Resend OTP has no limiter: `src/app/api/auth/resend-otp/route.ts:5-78`.
-- Verify OTP has no limiter or attempt counter: `src/app/api/auth/verify-email/route.ts:14-126`.
+Recommended action: add app-wide double-submit CSRF tokens for cookie-authenticated mutations; keep signed webhooks excluded.
 
-Risk: OTP brute force, SMTP quota burn, and password brute force.
+### P1-4. Deployment Secrets Must Be Set
 
-Recommended action: add Redis/Upstash-backed limits for login, resend, and verify, keyed by email plus IP.
+Evidence: `.env.example` includes `CRON_SECRET` and `RAZORPAY_WEBHOOK_SECRET`, and routes require them with `readRequiredEnv`, but they are optional in eager startup validation to keep local builds working.
 
-## P1 Findings
+Risk: cron/webhook routes fail at request time if those deployment secrets are missing.
 
-### P1-1. No CSRF Protection On Cookie-Authenticated Mutations
+Recommended action: set real `CRON_SECRET` and Razorpay webhook secret in production before launch; consider production-only eager validation.
 
-State-changing API routes rely on cookies and do not check CSRF token or Origin.
+## Remaining P2 Findings
 
-Evidence:
+- Admin provisioning remains undefined. Evidence: `isAdminEmail` exists in `src/lib/auth.ts:176-178`, but no seed or admin-management flow uses it.
+- Historical `sessions.difficulty` data-loss risk remains from an old migration and requires production/staging data audit.
+- Payment, auth, AI, and email flows need automated regression tests.
+- Observability is still mostly `console.error`; add Sentry or equivalent before real traffic.
 
-- Auth cookie uses `sameSite: 'lax'`: `src/lib/auth.ts:57-65`, `src/lib/auth-options.ts:135-141`.
-- Mutations such as profile update, booking, uploads, payment verification, and interview-room POST use cookies through `requireAuth` with no CSRF guard.
+## Verification Run
 
-Risk: malicious same-site or cross-site contexts can trigger user actions if cookies are sent.
-
-Recommended action: implement Origin validation and/or double-submit CSRF tokens for all cookie-authenticated mutations. Exclude signed webhooks.
-
-### P1-2. JWTs Are Still Not Invalidatable
-
-JWTs remain valid for seven days and `requireAuth` trusts token role without checking DB freshness.
-
-Evidence:
-
-- Token lifetime: `src/lib/auth.ts:40-42`.
-- Verification only checks signature: `src/lib/auth.ts:44-50`.
-- `requireAuth` returns token payload without DB user status/version lookup: `src/lib/auth.ts:84-95`.
-
-Risk: deleted users, role changes, and password changes do not revoke existing sessions.
-
-Recommended action: add `sessionVersion`/`tokenVersion` to `User`, include it in JWT, and validate it in sensitive route auth.
-
-### P1-3. Cron Routes Are Not Scheduled
-
-Cron endpoints exist but nothing invokes them in deployment.
-
-Evidence:
-
-- Routes: `src/app/api/cron/session-reminders/route.ts`, `src/app/api/cron/cleanup-signaling-rooms/route.ts`, `src/app/api/cron/cleanup-pending-users/route.ts`.
-- `vercel.json:1-16` contains no `crons` block.
-
-Risk: reminders are not sent and cleanup does not run in production.
-
-Recommended action: add Vercel Cron config or configure an external scheduler with `Authorization: Bearer ${CRON_SECRET}`.
-
-### P1-4. Reminder Delivery Is Not Reliably Tracked
-
-Reminder job marks sessions as sent before send functions can report failure.
-
-Evidence:
-
-- Claim sent first: `src/lib/scheduler.ts:41-44`.
-- Email functions catch and swallow send failures: `src/lib/email.ts:773-784`, `src/lib/email.ts:839-850`.
-
-Risk: users miss reminders with no retry.
-
-Recommended action: make cron-specific send helpers throw, mark `reminderSent` only after success, and introduce retryable email jobs.
-
-### P1-5. Environment Validation Is Incomplete
-
-Env validation is lazy and partial.
-
-Evidence:
-
-- Lazy proxy: `src/lib/env.ts:26-35`.
-- Direct env reads remain: `src/lib/email.ts:7-15`, upload routes, cron routes, `src/lib/auth.ts:9-15`.
-- `CRON_SECRET` and SMTP envs are not in `src/lib/env.ts:1-14`.
-
-Risk: production misconfiguration fails during user requests, not startup.
-
-Recommended action: add eager env validation and `.env.example`.
-
-### P1-6. Postgres-Based WebRTC Signaling Still Races And Does Not Scale
-
-Signaling remains DB polling with JSON read-modify-write arrays.
-
-Evidence:
-
-- Room API stores JSON arrays in one row: `prisma/schema.prisma:221-231`.
-- Candidate append reads then writes arrays: `src/app/api/interview-room/route.ts:236-260`.
-- Message append reads then writes arrays: `src/app/api/interview-room/route.ts:280-290`.
-- Clients poll room state every 1.5 seconds: `src/app/interviewer/interview-room/[sessionId]/page.tsx:349-352`; student page uses the same polling pattern.
-
-Risk: lost ICE candidates/messages under concurrency, heavy DB load, slow calls, failed WebRTC connections.
-
-Recommended action: move signaling to LiveKit, Ably, Pusher, or append-only signaling events as an interim.
-
-### P1-7. Security Headers Are Minimal
-
-No CSP, frame protections, or broad security headers are configured.
-
-Evidence:
-
-- `next.config.js:24-36` only sets `Permissions-Policy` for interview-room paths.
-
-Risk: increased impact from XSS or embedded-content abuse.
-
-Recommended action: add CSP, `X-Frame-Options`/`frame-ancestors`, `Referrer-Policy`, `X-Content-Type-Options`, and conservative permissions defaults.
-
-## P2 Findings
-
-### P2-1. Cloudinary Upload Validation Is MIME-Only
-
-Uploads validate browser-provided MIME type and size, not file magic bytes.
-
-Evidence:
-
-- Student resume type check: `src/app/api/student/upload-resume/route.ts:103-113`.
-- Interviewer docs type check: `src/app/api/interviewer/upload-documents/route.ts:97-128`, `src/app/api/interviewer/upload-documents/route.ts:140-152`.
-- Profile photo type check: `src/app/api/interviewer/upload-profile-picture/route.ts:95-111`.
-
-Risk: malicious files with forged MIME type can be stored and served.
-
-Recommended action: inspect file signatures server-side and consider AV scanning for documents.
-
-### P2-2. Admin Provisioning Is Still Undefined
-
-`ADMIN_EMAILS` exists but is unused in account creation.
-
-Evidence:
-
-- `src/lib/auth.ts:7` reads `ADMIN_EMAILS`.
-- `src/lib/auth.ts:133-135` exposes `isAdminEmail`.
-- `rg "isAdminEmail" src` only finds the definition.
-
-Risk: operational confusion and future insecure admin auto-promotion.
-
-Recommended action: add an explicit admin seed or protected admin management path.
-
-### P2-3. Disabled LinkedIn Sync UI Remains
-
-Evidence:
-
-- Handler calls disabled route at `src/app/interviewer/dashboard/page.tsx:99-129`.
-- Button is rendered at `src/app/interviewer/dashboard/page.tsx:257-264`.
-
-Risk: broken UX and support noise.
-
-Recommended action: remove the button and replace copy with manual upload only.
-
-### P2-4. Root/Public Error Boundary Missing
-
-Evidence:
-
-- Error boundaries exist under `student` and `interviewer`, but no `src/app/error.tsx`.
-
-Risk: login/signup/verify/public page render errors can white-screen.
-
-Recommended action: add root error boundary.
-
-### P2-5. Historical Difficulty Migration May Have Lost Data
-
-Evidence:
-
-- Migration warns about data loss at `prisma/migrations/20260324201410_career_level_and_interview_difficulty/migration.sql:4-6`.
-- It drops and recreates `sessions.difficulty` at `prisma/migrations/20260324201410_career_level_and_interview_difficulty/migration.sql:24-26`.
-
-Risk: historical analytics or matching data may be wrong.
-
-Recommended action: audit production/staging data and repair from backup if needed.
-
-## Positive Security Changes Verified
-
-- LinkedIn SSRF endpoint disabled: `src/app/api/interviewer/sync-linkedin-photo/route.ts:10-20`.
-- Email HTML escaping: `src/lib/email.ts:39-50`.
-- OAuth existing-role preservation: `src/lib/auth-options.ts:93-104`.
-- Password policy centralized and enforced on signup/change-password APIs: `src/lib/password-policy.ts:1-14`.
-- Groq timeout and timeout responses: `src/lib/ai/groq.ts:20`, `src/app/api/ai/notes/route.ts:171-175`, `src/app/api/ai/feedback/route.ts:117-121`.
-
+- `npx prisma validate`: passed
+- `npx prisma generate`: passed
+- `npx tsc --noEmit`: passed
+- `npm run build`: passed

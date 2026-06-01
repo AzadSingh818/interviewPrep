@@ -3,11 +3,28 @@ import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
 import { validatePasswordPolicy } from '@/lib/password-policy';
+import {
+  checkRateLimit,
+  getClientIp,
+  normalizeRateLimitEmail,
+  rateLimitResponse,
+} from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password, role } = body;
+    const normalizedEmail = normalizeRateLimitEmail(email);
+    const clientIp = getClientIp(request);
+
+    const limit = await checkRateLimit({
+      key: `auth:signup:${normalizedEmail}:${clientIp}`,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return rateLimitResponse(limit.retryAfter);
+    }
 
     // Validation
     if (!email || !password || !role) {

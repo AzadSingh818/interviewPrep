@@ -1,5 +1,28 @@
 # Changelog
 
+## Independent Fix Completion Batch
+
+Completed the independently actionable items from the verification reports.
+
+1. Added Razorpay webhook processing with signature verification, event persistence, duplicate handling, and shared idempotent subscription/unlock processors.
+2. Added logout API route and token-version invalidation.
+3. Added Prisma-backed auth rate limiting for login, signup, resend OTP, and verify email.
+4. Added `User.tokenVersion`, `PaymentWebhookEvent`, and `RateLimitBucket` schema support plus migrations.
+5. Added baseline CSRF Origin/Sec-Fetch-Site checks for cookie-authenticated API routes.
+6. Added Vercel cron schedules and hardened cleanup queries/indexes.
+7. Removed the legacy unlock fallback to `ManualBookingRequest` and added a cleanup migration for old placeholder rows.
+8. Added upload magic-byte validation and prevented invalid replacement uploads from deleting existing interviewer documents.
+9. Added CSP/security headers and a root error boundary.
+10. Removed stale LinkedIn sync UI and browser `confirm()` usages.
+11. Updated the security, regression, and remaining-work reports to reflect the current code.
+
+Verification:
+
+- `npx prisma validate`: passed
+- `npx prisma generate`: passed
+- `npx tsc --noEmit`: passed
+- `npm run build`: passed
+
 ## Controlled Remediation Batch
 
 Implemented the 19 approved fixes in the requested order.
@@ -30,4 +53,3 @@ Implemented the 19 approved fixes in the requested order.
 - `npx prisma validate`: passed
 - `npm run build`: passed after allowing network access for `next/font` Google font fetches
 - `npm run lint`: blocked because the repo has no ESLint config and `next lint` opens an interactive setup prompt
-

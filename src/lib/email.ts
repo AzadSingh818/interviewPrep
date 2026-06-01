@@ -2,15 +2,16 @@
 // Email utility using Nodemailer — professional table-based HTML emails
 
 import nodemailer from 'nodemailer';
+import { env, getOptionalEnv } from '@/lib/env';
 
 // ─── Transporter ─────────────────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
+  host: getOptionalEnv('SMTP_HOST', 'smtp.gmail.com'),
+  port: parseInt(getOptionalEnv('SMTP_PORT', '587') || '587'),
   secure: false,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
+    user: env.SMTP_USER,
+    pass: env.SMTP_PASSWORD,
   },
 });
 
@@ -338,7 +339,7 @@ export interface BookingEmailData {
 
 // ─── Student booking confirmation ─────────────────────────────────────────────
 export async function sendBookingConfirmationToStudent(data: BookingEmailData): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const isInterview = data.sessionType === 'INTERVIEW';
   const sessionLabel = isInterview ? 'Mock Interview' : 'Guidance Session';
 
@@ -389,7 +390,7 @@ export async function sendBookingConfirmationToStudent(data: BookingEmailData): 
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: data.studentEmail,
       subject: `✅ ${sessionLabel} Confirmed — ${formatDateOnly(start)}`,
       html,
@@ -403,7 +404,7 @@ export async function sendBookingConfirmationToStudent(data: BookingEmailData): 
 
 // ─── Interviewer booking notification ────────────────────────────────────────
 export async function sendBookingNotificationToInterviewer(data: BookingEmailData): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const isInterview = data.sessionType === 'INTERVIEW';
   const sessionLabel = isInterview ? 'Mock Interview' : 'Guidance Session';
 
@@ -455,7 +456,7 @@ export async function sendBookingNotificationToInterviewer(data: BookingEmailDat
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: data.interviewerEmail,
       subject: `📅 New ${sessionLabel} — ${formatDateOnly(start)}, ${formatTimeOnly(start)}`,
       html,
@@ -469,7 +470,7 @@ export async function sendBookingNotificationToInterviewer(data: BookingEmailDat
 
 // ─── Reminder email (30 min before session) ───────────────────────────────────
 export async function sendSessionReminderEmail(data: BookingEmailData & { recipientEmail: string; recipientName: string; recipientRole: 'student' | 'interviewer' }): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const isInterview = data.sessionType === 'INTERVIEW';
   const sessionLabel = isInterview ? 'Mock Interview' : 'Guidance Session';
   const isStudent = data.recipientRole === 'student';
@@ -531,7 +532,7 @@ export async function sendSessionReminderEmail(data: BookingEmailData & { recipi
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: data.recipientEmail,
       subject: `⏰ Reminder: ${sessionLabel} in 30 minutes — ${formatTimeOnly(start)}`,
       html,
@@ -545,7 +546,7 @@ export async function sendSessionReminderEmail(data: BookingEmailData & { recipi
 
 // ─── Verification email ───────────────────────────────────────────────────────
 export async function sendVerificationEmail(email: string, otp: string): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const safeAppName = escapeHtml(appName);
   const year = new Date().getFullYear();
 
@@ -622,7 +623,7 @@ export async function sendVerificationEmail(email: string, otp: string): Promise
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: email,
       subject: `Verify Your Email — ${appName}`,
       html,
@@ -637,7 +638,7 @@ export async function sendVerificationEmail(email: string, otp: string): Promise
 
 // ─── Welcome email ────────────────────────────────────────────────────────────
 export async function sendWelcomeEmail(email: string, name: string): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const safeAppName = escapeHtml(appName);
   const safeName = escapeHtml(name);
   const year = new Date().getFullYear();
@@ -708,7 +709,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: email,
       subject: `Welcome to ${appName}! 🎉`,
       html,
@@ -721,7 +722,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
 
 // ─── Student reminder email ───────────────────────────────────────────────────
 export async function sendReminderToStudent(data: BookingEmailData): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const isInterview = data.sessionType === 'INTERVIEW';
   const sessionLabel = isInterview ? 'Mock Interview' : 'Guidance Session';
 
@@ -772,7 +773,7 @@ export async function sendReminderToStudent(data: BookingEmailData): Promise<voi
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: data.studentEmail,
       subject: `⏰ Reminder: ${sessionLabel} starts in 30 minutes — ${formatTimeOnly(start)}`,
       html,
@@ -781,12 +782,13 @@ export async function sendReminderToStudent(data: BookingEmailData): Promise<voi
     console.log(`✅ Reminder sent to student: ${data.studentEmail}`);
   } catch (err) {
     console.error('❌ Failed to send student reminder:', err);
+    throw err;
   }
 }
 
 // ─── Interviewer reminder email ───────────────────────────────────────────────
 export async function sendReminderToInterviewer(data: BookingEmailData): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const isInterview = data.sessionType === 'INTERVIEW';
   const sessionLabel = isInterview ? 'Mock Interview' : 'Guidance Session';
 
@@ -838,7 +840,7 @@ export async function sendReminderToInterviewer(data: BookingEmailData): Promise
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: data.interviewerEmail,
       subject: `⏰ Reminder: ${sessionLabel} with ${data.studentName} in 30 minutes`,
       html,
@@ -847,6 +849,7 @@ export async function sendReminderToInterviewer(data: BookingEmailData): Promise
     console.log(`✅ Reminder sent to interviewer: ${data.interviewerEmail}`);
   } catch (err) {
     console.error('❌ Failed to send interviewer reminder:', err);
+    throw err;
   }
 }
 
@@ -886,7 +889,7 @@ interface ManualBookingAssignedData {
 export async function sendManualBookingReceivedToStudent(
   data: ManualBookingReceivedData
 ): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const safeAppName = escapeHtml(appName);
   const safeStudentName = escapeHtml(data.studentName);
   const safePreferredInterviewerName = data.preferredInterviewerName
@@ -984,7 +987,7 @@ export async function sendManualBookingReceivedToStudent(
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: data.studentEmail,
       subject: `📬 Request Received — Admin Will Assign Your Interviewer Soon`,
       html,
@@ -1000,7 +1003,7 @@ export async function sendManualBookingReceivedToStudent(
 export async function sendManualBookingAssignedToStudent(
   data: ManualBookingAssignedData
 ): Promise<void> {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'InterviewPrep Live';
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
   const safeAppName = escapeHtml(appName);
   const safeStudentName = escapeHtml(data.studentName);
   const sessionLabel = data.sessionType === 'INTERVIEW' ? 'Mock Interview' : 'Guidance Session';
@@ -1129,7 +1132,7 @@ export async function sendManualBookingAssignedToStudent(
 
   try {
     await transporter.sendMail({
-      from: `"${appName}" <${process.env.SMTP_USER}>`,
+      from: `"${appName}" <${env.SMTP_USER}>`,
       to: data.studentEmail,
       subject: `🎯 Interviewer Assigned — ${sessionLabel} on ${dateStr}`,
       html,

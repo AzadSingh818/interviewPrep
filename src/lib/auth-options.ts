@@ -4,27 +4,17 @@ import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
-
-function getRequiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value || value.trim() === '') {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-function getJwtSecret(): string {
-  return getRequiredEnv('JWT_SECRET');
-}
+import { env } from './env';
 
 interface JWTPayload {
   userId: number;
   email: string;
   role: string;
+  tokenVersion: number;
 }
 
 function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
+  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '7d' });
 }
 
 /**
@@ -39,10 +29,10 @@ function isGoogleAccountPhoto(url: string | null | undefined): boolean {
 
 export function buildAuthOptions(): AuthOptions {
   return {
-    providers: [
+      providers: [
       GoogleProvider({
-        clientId: getRequiredEnv('GOOGLE_CLIENT_ID'),
-        clientSecret: getRequiredEnv('GOOGLE_CLIENT_SECRET'),
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
       }),
     ],
     callbacks: {
@@ -126,6 +116,7 @@ export function buildAuthOptions(): AuthOptions {
             userId: user.id,
             email:  user.email,
             role:   user.role,
+            tokenVersion: user.tokenVersion,
           });
 
           token.customToken = customToken;
@@ -212,7 +203,7 @@ export function buildAuthOptions(): AuthOptions {
       signIn: '/login/student',
       error:  '/login/student',
     },
-    secret:  getRequiredEnv('NEXTAUTH_SECRET'),
+    secret:  env.NEXTAUTH_SECRET,
     session: { strategy: 'jwt' },
   };
 }

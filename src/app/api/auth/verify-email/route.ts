@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { generateToken, setAuthCookie } from '@/lib/auth';
 import { sendWelcomeEmail } from '@/lib/email';
 import { UserRole } from '@prisma/client';
+import {
+  checkRateLimit,
+  getClientIp,
+  normalizeRateLimitEmail,
+  rateLimitResponse,
+} from '@/lib/rate-limit';
 
 function parsePendingUserRole(role: string): UserRole | null {
   if (role === UserRole.STUDENT || role === UserRole.INTERVIEWER) {
@@ -15,6 +21,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, otp } = body;
+    const normalizedEmail = normalizeRateLimitEmail(email);
+    const clientIp = getClientIp(request);
+
+    const limit = await checkRateLimit({
+      key: `auth:verify-email:${normalizedEmail}:${clientIp}`,
+      limit: 5,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return rateLimitResponse(limit.retryAfter);
+    }
 
     if (!email || !otp) {
       return NextResponse.json(
@@ -92,6 +109,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion,
       id: undefined
     });
 

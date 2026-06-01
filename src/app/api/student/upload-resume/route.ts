@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
+import { hasValidFileSignature } from '@/lib/file-validation';
+import { env } from '@/lib/env';
 
 // ── Cloudinary upload via REST API (no SDK stream issues) ─────────────────────
 async function uploadToCloudinary(
@@ -9,9 +11,9 @@ async function uploadToCloudinary(
   folder: string,            // e.g. "student-resumes"
   resourceType: 'raw' | 'image' = 'raw',
 ): Promise<string> {
-  const cloudName  = process.env.CLOUDINARY_CLOUD_NAME!;
-  const apiKey     = process.env.CLOUDINARY_API_KEY!;
-  const apiSecret  = process.env.CLOUDINARY_API_SECRET!;
+  const cloudName  = env.CLOUDINARY_CLOUD_NAME;
+  const apiKey     = env.CLOUDINARY_API_KEY;
+  const apiSecret  = env.CLOUDINARY_API_SECRET;
   const timestamp  = Math.floor(Date.now() / 1000);
 
   // ── Build signature ───────────────────────────────────────────────────────
@@ -53,9 +55,9 @@ async function deleteFromCloudinary(
   resourceType: 'raw' | 'image' = 'raw',
 ): Promise<void> {
   try {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME!;
-    const apiKey    = process.env.CLOUDINARY_API_KEY!;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET!;
+    const cloudName = env.CLOUDINARY_CLOUD_NAME;
+    const apiKey    = env.CLOUDINARY_API_KEY;
+    const apiSecret = env.CLOUDINARY_API_SECRET;
     const timestamp = Math.floor(Date.now() / 1000);
 
     // Extract public_id including folder, strip version and extension
@@ -147,13 +149,15 @@ export async function POST(request: NextRequest) {
     // Final filename — guaranteed no slashes
     const filename = `${safeName}_resume_${userId}`;
 
-    // ── Delete old resume from Cloudinary ─────────────────────────────────
-    if (studentProfile?.resumeUrl?.includes('cloudinary.com')) {
-      await deleteFromCloudinary(studentProfile.resumeUrl, 'raw');
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (!hasValidFileSignature(buffer, file.type)) {
+      return NextResponse.json(
+        { error: 'Invalid file content. Please upload a valid PDF, DOC, or DOCX file.' },
+        { status: 400 },
+      );
     }
 
     // ── Upload ────────────────────────────────────────────────────────────
-    const buffer   = Buffer.from(await file.arrayBuffer());
     const resumeUrl = await uploadToCloudinary(buffer, filename, 'student-resumes', 'raw');
 
     await prisma.studentProfile.update({

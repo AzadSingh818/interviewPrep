@@ -21,6 +21,7 @@ model User {
   profilePicture          String?             @map("profile_picture")
   verificationToken       String?             @map("verification_token")
   verificationTokenExpiry DateTime?           @map("verification_token_expiry") @db.Timestamp(6)
+  tokenVersion            Int                 @default(0) @map("token_version")
   interviewerProfile      InterviewerProfile?
   studentProfile          StudentProfile?
 
@@ -233,6 +234,35 @@ model SignalingRoom {
   updatedAt            DateTime @updatedAt
 
   @@map("signaling_rooms")
+}
+
+model PaymentWebhookEvent {
+  id              Int       @id @default(autoincrement())
+  provider        String    @default("RAZORPAY")
+  eventId         String    @unique @map("event_id")
+  eventType       String    @map("event_type")
+  orderId         String?   @map("order_id")
+  paymentId       String?   @map("payment_id")
+  payload         Json
+  processedAt     DateTime? @map("processed_at")
+  processingError String?   @map("processing_error")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@map("payment_webhook_events")
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  resetAt   DateTime @map("reset_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([resetAt])
+  @@map("rate_limit_buckets")
 }
 
 enum UserRole {

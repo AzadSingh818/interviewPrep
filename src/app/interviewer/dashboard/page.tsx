@@ -83,11 +83,6 @@ function ProfileHeader({
   userInitials: string;
   onPhotoUpdated: () => void;
 }) {
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState<{
-    type: "success" | "error" | "warn";
-    text: string;
-  } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<{
     type: "success" | "error";
@@ -95,48 +90,6 @@ function ProfileHeader({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoReady = hasCustomPhoto(user);
-
-  const handleLinkedInSync = async () => {
-    if (!profile?.linkedinUrl) {
-      setSyncMsg({
-        type: "warn",
-        text: "Add your LinkedIn URL in the profile form first.",
-      });
-      return;
-    }
-    setSyncing(true);
-    setSyncMsg(null);
-    try {
-      const res = await fetch("/api/interviewer/sync-linkedin-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ linkedinUrl: profile.linkedinUrl }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncMsg({
-          type: "success",
-          text: "Profile photo synced from LinkedIn!",
-        });
-        onPhotoUpdated();
-      } else {
-        setSyncMsg({
-          type:
-            data.code === "PHOTO_NOT_FOUND" || data.code === "LINKEDIN_BLOCKED"
-              ? "warn"
-              : "error",
-          text: data.error || "Could not fetch photo from LinkedIn.",
-        });
-      }
-    } catch {
-      setSyncMsg({
-        type: "error",
-        text: "Something went wrong. Please try uploading manually.",
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -254,28 +207,17 @@ function ProfileHeader({
             >
               {uploading ? "Uploading..." : "Change photo"}
             </button>
-            {profile?.linkedinUrl && (
-              <button
-                onClick={handleLinkedInSync}
-                disabled={syncing}
-                className="text-xs text-violet-600 dark:text-violet-300 hover:text-violet-800 dark:hover:text-violet-200 font-medium underline disabled:opacity-50"
-              >
-                {syncing ? "Syncing..." : "Sync from LinkedIn"}
-              </button>
-            )}
           </div>
 
-          {(syncMsg || uploadMsg) && (
+          {uploadMsg && (
             <p
               className={`text-xs mt-2 ${
-                (syncMsg?.type || uploadMsg?.type) === "success"
+                uploadMsg.type === "success"
                   ? "text-green-600 dark:text-green-300"
-                  : (syncMsg?.type || uploadMsg?.type) === "warn"
-                    ? "text-amber-600 dark:text-amber-300"
-                    : "text-red-600 dark:text-red-300"
+                  : "text-red-600 dark:text-red-300"
               }`}
             >
-              {syncMsg?.text || uploadMsg?.text}
+              {uploadMsg.text}
             </p>
           )}
         </div>

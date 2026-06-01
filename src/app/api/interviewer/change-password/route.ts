@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, verifyPassword, hashPassword } from '@/lib/auth';
+import { requireAuth, verifyPassword, hashPassword, generateToken, setAuthCookie } from '@/lib/auth';
 import { validatePasswordPolicy } from '@/lib/password-policy';
 
 export async function POST(request: NextRequest) {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     const dbUser = await prisma.user.findUnique({
       where: { id: user.userId },
-      select: { passwordHash: true, provider: true },
+      select: { email: true, role: true, passwordHash: true, provider: true },
     });
 
     if (!dbUser) {
@@ -50,10 +50,20 @@ export async function POST(request: NextRequest) {
     }
 
     const newHash = await hashPassword(newPassword);
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.userId },
-      data: { passwordHash: newHash },
+      data: {
+        passwordHash: newHash,
+        tokenVersion: { increment: 1 },
+      },
+      select: { id: true, email: true, role: true, tokenVersion: true },
     });
+    await setAuthCookie(generateToken({
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      tokenVersion: updatedUser.tokenVersion,
+    }));
 
     return NextResponse.json({ message: 'Password updated successfully' });
   } catch (error: any) {

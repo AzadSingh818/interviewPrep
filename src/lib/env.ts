@@ -11,26 +11,51 @@ const requiredServerEnv = [
   'GOOGLE_CLIENT_SECRET',
   'NEXTAUTH_SECRET',
   'NEXTAUTH_URL',
+  'SMTP_USER',
+  'SMTP_PASSWORD',
+] as const;
+
+const optionalServerEnv = [
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'CRON_SECRET',
+  'RAZORPAY_WEBHOOK_SECRET',
+  'ADMIN_EMAILS',
+  'NEXT_PUBLIC_APP_NAME',
+  'NEXT_PUBLIC_APP_URL',
 ] as const;
 
 type RequiredServerEnv = (typeof requiredServerEnv)[number];
+type OptionalServerEnv = (typeof optionalServerEnv)[number];
+type KnownServerEnv = RequiredServerEnv | OptionalServerEnv;
 
-function readRequiredEnv(name: RequiredServerEnv): string {
+function readEnv(name: string): string | undefined {
   const value = process.env[name];
-  if (!value || value.trim() === '') {
+  return value && value.trim() !== '' ? value : undefined;
+}
+
+export function readRequiredEnv(name: KnownServerEnv): string {
+  const value = readEnv(name);
+  if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
 }
 
-export const env: Record<RequiredServerEnv, string> = new Proxy(
-  {} as Record<RequiredServerEnv, string>,
-  {
-    get(_target, prop: string | symbol) {
-      if (typeof prop !== 'string') return undefined;
-      if (!requiredServerEnv.includes(prop as RequiredServerEnv)) return undefined;
-      return readRequiredEnv(prop as RequiredServerEnv);
-    },
-  },
-);
+function validateRequiredServerEnv(): Record<RequiredServerEnv, string> {
+  const missing = requiredServerEnv.filter((name) => !readEnv(name));
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
 
+  return requiredServerEnv.reduce((acc, name) => {
+    acc[name] = readRequiredEnv(name);
+    return acc;
+  }, {} as Record<RequiredServerEnv, string>);
+}
+
+export const env = validateRequiredServerEnv();
+
+export function getOptionalEnv(name: OptionalServerEnv, fallback?: string): string | undefined {
+  return readEnv(name) ?? fallback;
+}

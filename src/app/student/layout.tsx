@@ -9,7 +9,11 @@ import { validatePasswordPolicy } from '@/lib/password-policy';
 
 // ─── Dark mode hook ───────────────────────────────────────────────────────────
 function useDarkMode() {
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(() =>
+    typeof document !== 'undefined'
+      ? document.documentElement.classList.contains('dark')
+      : false,
+  );
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');

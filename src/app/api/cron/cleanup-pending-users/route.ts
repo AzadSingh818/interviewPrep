@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { readRequiredEnv } from '@/lib/env';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
@@ -11,11 +12,7 @@ export async function GET(request: NextRequest) {
     // Verify this is being called by authorized source
     // For production, add authentication here
     const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret) {
-      return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 500 });
-    }
+    const cronSecret = readRequiredEnv('CRON_SECRET');
     
     if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -30,11 +27,18 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const expiredRateLimits = await prisma.rateLimitBucket.deleteMany({
+      where: {
+        resetAt: { lt: new Date() },
+      },
+    });
+
     console.log(`✅ Cleaned up ${result.count} expired pending users`);
 
     return NextResponse.json({
       success: true,
       deletedCount: result.count,
+      expiredRateLimitBuckets: expiredRateLimits.count,
       message: `Deleted ${result.count} expired pending signups`,
     });
 

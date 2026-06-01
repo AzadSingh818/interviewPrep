@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { readRequiredEnv } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 500 });
-    }
+    const cronSecret = readRequiredEnv('CRON_SECRET');
 
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${cronSecret}`) {
@@ -16,9 +14,20 @@ export async function GET(request: NextRequest) {
     }
 
     const staleBefore = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const sessionSafeBefore = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const protectedSessions = await prisma.session.findMany({
+      where: {
+        status: 'SCHEDULED',
+        scheduledTime: { gt: sessionSafeBefore },
+      },
+      select: { id: true },
+    });
+    const protectedRoomIds = protectedSessions.map((session) => String(session.id));
+
     const result = await prisma.signalingRoom.deleteMany({
       where: {
         updatedAt: { lt: staleBefore },
+        id: { notIn: protectedRoomIds },
       },
     });
 
@@ -31,4 +40,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Signaling room cleanup failed' }, { status: 500 });
   }
 }
-

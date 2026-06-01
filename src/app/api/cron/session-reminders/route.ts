@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processDueSessionReminders } from '@/lib/scheduler';
+import { readRequiredEnv } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 500 });
-    }
+    const cronSecret = readRequiredEnv('CRON_SECRET');
 
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${cronSecret}`) {
@@ -22,4 +20,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Session reminder processing failed' }, { status: 500 });
   }
 }
-

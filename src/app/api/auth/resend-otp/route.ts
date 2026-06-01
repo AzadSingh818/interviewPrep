@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
+import {
+  checkRateLimit,
+  getClientIp,
+  normalizeRateLimitEmail,
+  rateLimitResponse,
+} from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email } = body;
+    const normalizedEmail = normalizeRateLimitEmail(email);
+    const clientIp = getClientIp(request);
+
+    const limit = await checkRateLimit({
+      key: `auth:resend-otp:${normalizedEmail}:${clientIp}`,
+      limit: 3,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return rateLimitResponse(limit.retryAfter);
+    }
 
     if (!email) {
       return NextResponse.json(

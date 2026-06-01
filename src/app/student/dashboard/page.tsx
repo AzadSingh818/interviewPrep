@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
+import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { PaymentGate } from "@/components/shared/PaymentGate";
 import { PRO_PLAN_PRICE_DISPLAY } from "@/lib/pricing";
 import Link from "next/link";
@@ -541,6 +542,8 @@ function DashboardInner() {
   const [uploadingResume, setUploadingResume] = useState(false);
   const [resumeError, setResumeError] = useState("");
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showDeleteResumeConfirm, setShowDeleteResumeConfirm] = useState(false);
+  const [deletingResume, setDeletingResume] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -685,14 +688,19 @@ function DashboardInner() {
   };
 
   const handleDeleteResume = async () => {
-    if (!confirm("Are you sure you want to delete your resume?")) return;
+    setDeletingResume(true);
     try {
       const res = await fetch("/api/student/upload-resume", {
         method: "DELETE",
       });
-      if (res.ok) await fetchProfile();
+      if (res.ok) {
+        await fetchProfile();
+        setShowDeleteResumeConfirm(false);
+      }
     } catch (err) {
       console.error("Failed to delete resume:", err);
+    } finally {
+      setDeletingResume(false);
     }
   };
 
@@ -754,6 +762,37 @@ function DashboardInner() {
   // ── Main Dashboard ─────────────────────────────────────────────────────────
   return (
     <div className="max-w-6xl mx-auto">
+      <Modal
+        isOpen={showDeleteResumeConfirm}
+        onClose={() => {
+          if (!deletingResume) setShowDeleteResumeConfirm(false);
+        }}
+        title="Delete resume?"
+        size="sm"
+      >
+        <p className="text-sm text-slate-600">
+          This removes the resume from your profile. You can upload a new one later.
+        </p>
+        <ModalFooter>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowDeleteResumeConfirm(false)}
+            disabled={deletingResume}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={handleDeleteResume}
+            disabled={deletingResume}
+          >
+            {deletingResume ? "Deleting..." : "Delete"}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
       {/* ── Page title ── */}
       <div className="mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900 dark:text-white">
@@ -951,7 +990,7 @@ function DashboardInner() {
                     View
                   </a>
                   <button
-                    onClick={handleDeleteResume}
+                    onClick={() => setShowDeleteResumeConfirm(true)}
                     className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-xs sm:text-sm font-medium"
                   >
                     Delete
