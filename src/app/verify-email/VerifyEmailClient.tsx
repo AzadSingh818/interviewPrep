@@ -165,9 +165,9 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-6 sm:mb-8">
+        <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl" />
             <span className="text-2xl font-display font-bold text-slate-900">
@@ -181,7 +181,7 @@ export default function VerifyEmailPage() {
             </svg>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 mb-2">
+          <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">
             Check Your Email
           </h1>
           <p className="text-slate-600 mb-2">
@@ -190,12 +190,12 @@ export default function VerifyEmailPage() {
           <p className="text-indigo-600 font-medium">{email}</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-5 sm:p-8">
+        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8">
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-3 text-center">
               Enter 6-digit code
             </label>
-            <div className="flex gap-1.5 sm:gap-2 justify-center">
+            <div className="flex gap-2 justify-center">
               {otp.map((digit, index) => (
                 <input
                   key={index}
@@ -206,7 +206,7 @@ export default function VerifyEmailPage() {
                   value={digit}
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-2xl font-bold border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className="w-12 h-14 text-center text-2xl font-bold border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
                   disabled={loading}
                 />
               ))}

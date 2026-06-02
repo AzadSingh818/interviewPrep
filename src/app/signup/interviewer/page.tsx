@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { validatePasswordPolicy } from '@/lib/password-policy';
 
 export default function InterviewerSignupPage() {
   const router = useRouter();
@@ -26,9 +25,8 @@ export default function InterviewerSignupPage() {
       return;
     }
 
-    const passwordPolicy = validatePasswordPolicy(password);
-    if (!passwordPolicy.valid) {
-      setError(passwordPolicy.error || 'Password does not meet requirements');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 

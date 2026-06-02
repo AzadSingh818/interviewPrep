@@ -29,11 +29,10 @@ function StarRating({
             type="button"
             disabled={readonly}
             onClick={() => !readonly && onChange?.(star)}
-            onPointerEnter={(e) => !readonly && e.pointerType === 'mouse' && setHovered(star)}
-            onPointerLeave={(e) => !readonly && e.pointerType === 'mouse' && setHovered(0)}
-            aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
-            className={`tap-target inline-flex items-center justify-center ${starSize} transition-transform ${
-              readonly ? 'cursor-default' : 'cursor-pointer active:scale-95'
+            onMouseEnter={() => !readonly && setHovered(star)}
+            onMouseLeave={() => !readonly && setHovered(0)}
+            className={`${starSize} transition-transform ${
+              readonly ? 'cursor-default' : 'cursor-pointer hover:scale-110'
             } ${filled ? 'text-amber-400' : 'text-slate-300'}`}
           >
             ★
@@ -111,24 +110,7 @@ export default function StudentFeedbackPage() {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto px-1 sm:px-0 animate-pulse">
-        <div className="h-8 w-48 bg-slate-200 rounded-lg mb-3" />
-        <div className="h-4 w-72 bg-slate-200 rounded mb-8" />
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-8 mb-5 sm:mb-6 space-y-4">
-          <div className="h-5 w-40 bg-slate-200 rounded" />
-          <div className="h-4 w-full bg-slate-200 rounded" />
-          <div className="h-4 w-5/6 bg-slate-200 rounded" />
-          <div className="h-4 w-3/4 bg-slate-200 rounded" />
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-8 space-y-4">
-          <div className="h-5 w-44 bg-slate-200 rounded" />
-          <div className="h-11 w-52 bg-slate-200 rounded-xl" />
-          <div className="h-24 w-full bg-slate-200 rounded-xl" />
-          <div className="h-11 w-full bg-slate-200 rounded-xl" />
-        </div>
-      </div>
-    );
+    return <div className="text-center py-12">Loading feedback...</div>;
   }
 
   if (!feedback) {
@@ -138,40 +120,40 @@ export default function StudentFeedbackPage() {
   const isGuidance = feedback.session.sessionType === 'GUIDANCE';
 
   return (
-    <div className="max-w-4xl mx-auto px-1 sm:px-0">
-      <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 mb-2">
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">
         Session Feedback
       </h1>
-      <p className="text-slate-600 text-sm sm:text-base mb-6 sm:mb-8 break-words">
+      <p className="text-slate-600 mb-8">
         From your session with {feedback.session.interviewer.name}
       </p>
 
-      <Card variant="elevated" className="p-5 sm:p-8 mb-5 sm:mb-6">
+      <Card variant="elevated" className="p-8 mb-6">
         <div className="mb-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">Summary</h2>
-          <p className="text-slate-700 break-words">{feedback.summary}</p>
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Summary</h2>
+          <p className="text-slate-700">{feedback.summary}</p>
         </div>
 
         {isGuidance ? (
           <>
             <div className="mb-6">
-              <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">Strengths</h2>
+              <h2 className="text-xl font-semibold text-slate-900 mb-2">Strengths</h2>
               <p className="text-slate-700 whitespace-pre-line">{feedback.strengths}</p>
             </div>
 
             <div className="mb-6">
-              <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">Recommendations</h2>
+              <h2 className="text-xl font-semibold text-slate-900 mb-2">Recommendations</h2>
               <p className="text-slate-700 whitespace-pre-line">{feedback.recommendations}</p>
             </div>
 
             <div>
-              <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">Action Items</h2>
+              <h2 className="text-xl font-semibold text-slate-900 mb-2">Action Items</h2>
               <p className="text-slate-700 whitespace-pre-line">{feedback.actionItems}</p>
             </div>
           </>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
+            <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
                 <h3 className="text-sm font-medium text-slate-500 mb-2">Technical Depth</h3>
                 <div className="flex items-center gap-2">
@@ -234,7 +216,7 @@ export default function StudentFeedbackPage() {
             </div>
 
             <div className="mb-6">
-              <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">Overall Comments</h2>
+              <h2 className="text-xl font-semibold text-slate-900 mb-2">Overall Comments</h2>
               <p className="text-slate-700 whitespace-pre-line">{feedback.overallComments}</p>
             </div>
 
@@ -252,8 +234,8 @@ export default function StudentFeedbackPage() {
       </Card>
 
       {/* ── Rate the Interviewer ───────────────────────────────────────────── */}
-      <Card variant="elevated" className="p-5 sm:p-8">
-        <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">
+      <Card variant="elevated" className="p-8">
+        <h2 className="text-xl font-semibold text-slate-900 mb-1">
           Rate Your Interviewer
         </h2>
         <p className="text-sm text-slate-500 mb-6">
@@ -279,8 +261,8 @@ export default function StudentFeedbackPage() {
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm">
                 {feedback.session.interviewer.name.charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <p className="font-semibold text-slate-900 break-words">{feedback.session.interviewer.name}</p>
+              <div>
+                <p className="font-semibold text-slate-900">{feedback.session.interviewer.name}</p>
                 <p className="text-xs text-slate-500">How was your experience?</p>
               </div>
             </div>
@@ -306,7 +288,7 @@ export default function StudentFeedbackPage() {
                 onChange={(e) => setRatingComment(e.target.value)}
                 placeholder="Share your experience with this interviewer..."
                 rows={3}
-                className="w-full min-h-11 px-3 py-2 border border-slate-300 rounded-xl text-base sm:text-sm focus:border-indigo-500 focus:outline-none resize-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:border-indigo-500 focus:outline-none resize-none"
               />
             </div>
 
@@ -319,10 +301,10 @@ export default function StudentFeedbackPage() {
             <button
               onClick={handleSubmitRating}
               disabled={submittingRating || rating === 0}
-              className={`w-full min-h-11 py-3 rounded-xl font-semibold text-sm transition-all ${
+              className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
                 rating === 0
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md shadow-indigo-200'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200'
               }`}
             >
               {submittingRating ? 'Submitting…' : 'Submit Rating'}

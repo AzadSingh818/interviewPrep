@@ -2,29 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
-import { validatePasswordPolicy } from '@/lib/password-policy';
-import {
-  checkRateLimit,
-  getClientIp,
-  normalizeRateLimitEmail,
-  rateLimitResponse,
-} from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password, role } = body;
-    const normalizedEmail = normalizeRateLimitEmail(email);
-    const clientIp = getClientIp(request);
-
-    const limit = await checkRateLimit({
-      key: `auth:signup:${normalizedEmail}:${clientIp}`,
-      limit: 5,
-      windowMs: 60 * 60 * 1000,
-    });
-    if (!limit.allowed) {
-      return rateLimitResponse(limit.retryAfter);
-    }
 
     // Validation
     if (!email || !password || !role) {
@@ -43,11 +25,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate password strength
-    const passwordPolicy = validatePasswordPolicy(password);
-    if (!passwordPolicy.valid) {
+    // Validate password length
+    if (password.length < 6) {
       return NextResponse.json(
-        { error: passwordPolicy.error },
+        { error: 'Password must be at least 6 characters' },
         { status: 400 }
       );
     }
@@ -74,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if there's already a pending signup for this email
-    const existingPendingUser = await prisma.pendingUser.findUnique({
+    const existingPendingUser = await (prisma as any).pendingUser.findUnique({
       where: { email },
     });
 
@@ -89,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Create or update pending user
     if (existingPendingUser) {
       // Update existing pending user with new OTP
-      await prisma.pendingUser.update({
+      await (prisma as any).pendingUser.update({
         where: { email },
         data: {
           passwordHash,
@@ -101,7 +82,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Create new pending user
-      await prisma.pendingUser.create({
+      await (prisma as any).pendingUser.create({
         data: {
           email,
           passwordHash,

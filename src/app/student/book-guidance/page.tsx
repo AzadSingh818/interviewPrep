@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
-import { useToast } from '@/components/ui/Toast';
 import { PaymentGate, UsageBanner } from '@/components/shared/PaymentGate';
 
 // ─── Predefined Guidance Topics ──────────────────────────────────────────────
@@ -48,7 +47,7 @@ function TopicSelector({
         value={selectedOption}
         onChange={(e) => onOptionChange(e.target.value)}
         required={selectedOption !== 'Other'}
-        className="w-full min-h-11 px-3 py-2 border border-slate-300 dark:border-white/10 rounded-lg text-base
+        className="w-full px-3 py-2 border border-slate-300 dark:border-white/10 rounded-lg text-sm
                    focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-400
                    bg-white dark:bg-slate-900/80 text-slate-800 dark:text-slate-100"
       >
@@ -67,7 +66,7 @@ function TopicSelector({
             onChange={(e) => onCustomChange(e.target.value)}
             autoFocus
             required
-            className="w-full min-h-11 px-3 py-2 border border-indigo-300 dark:border-indigo-400/30 rounded-lg text-base
+            className="w-full px-3 py-2 border border-indigo-300 dark:border-indigo-400/30 rounded-lg text-sm
                        focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-400
                        placeholder:text-slate-400 dark:bg-slate-900/80 dark:text-slate-100"
           />
@@ -231,7 +230,7 @@ function BookingForm({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Available Slot</label>
             <select
-              className="w-full min-h-11 px-3 py-2 border border-slate-300 dark:border-white/10 rounded-lg text-base focus:border-indigo-500 focus:outline-none bg-white dark:bg-slate-900/80 text-slate-900 dark:text-slate-100"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-white/10 rounded-lg text-sm focus:border-indigo-500 focus:outline-none bg-white dark:bg-slate-900/80 text-slate-900 dark:text-slate-100"
               value={formData.scheduledTime}
               onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
               required
@@ -375,7 +374,7 @@ function MentorList({
                 {mobile && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onSelect(interviewer); }}
-                    className="mt-3 w-full min-h-11 py-2.5 text-sm font-semibold text-indigo-600 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-400/30 rounded-lg bg-white dark:bg-slate-900/80 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors touch-manipulation"
+                    className="mt-3 w-full py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-400/30 rounded-lg bg-white dark:bg-slate-900/80 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
                   >
                     Select & Book →
                   </button>
@@ -392,7 +391,6 @@ function MentorList({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BookGuidancePage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [interviewers, setInterviewers]               = useState<any[]>([]);
   const [selectedInterviewer, setSelectedInterviewer] = useState<any>(null);
   const [loading, setLoading]       = useState(true);
@@ -477,7 +475,7 @@ export default function BookGuidancePage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast('Guidance session booked successfully!', 'success');
+        alert('Guidance session booked successfully!');
         router.push('/student/sessions');
       } else if (data.error === 'LIMIT_REACHED') {
         setLimitReached(true);

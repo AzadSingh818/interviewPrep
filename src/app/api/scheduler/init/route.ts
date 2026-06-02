@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server';
+// src/app/api/scheduler/init/route.ts
+// This route is called once on app startup to start the reminder scheduler.
 
-export const dynamic = 'force-dynamic';
+import { NextResponse } from 'next/server';
+import { startScheduler } from '@/lib/scheduler';
+
+let initialized = false;
 
 export async function GET() {
-  return NextResponse.json(
-    {
-      error: 'In-process scheduler init is disabled. Call /api/cron/session-reminders from your scheduler instead.',
-      code: 'SCHEDULER_INIT_DISABLED',
-    },
-    { status: 410 },
-  );
+  if (!initialized) {
+    startScheduler();
+    initialized = true;
+    return NextResponse.json({ message: 'Scheduler started' });
+  }
+  return NextResponse.json({ message: 'Scheduler already running' });
 }

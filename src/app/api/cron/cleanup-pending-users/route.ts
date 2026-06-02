@@ -4,32 +4,25 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { readRequiredEnv } from '@/lib/env';
 export const dynamic = 'force-dynamic';
 
-async function handleRequest(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     // Verify this is being called by authorized source
     // For production, add authentication here
     const authHeader = request.headers.get('authorization');
-    const cronSecret = readRequiredEnv('CRON_SECRET');
+    const cronSecret = process.env.CRON_SECRET;
     
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Delete expired pending users (older than 24 hours)
-    const result = await prisma.pendingUser.deleteMany({
+    const result = await (prisma as any).pendingUser.deleteMany({
       where: {
         expiresAt: {
           lt: new Date(), // Less than current time
         },
-      },
-    });
-
-    const expiredRateLimits = await prisma.rateLimitBucket.deleteMany({
-      where: {
-        resetAt: { lt: new Date() },
       },
     });
 
@@ -38,7 +31,6 @@ async function handleRequest(request: NextRequest) {
     return NextResponse.json({
       success: true,
       deletedCount: result.count,
-      expiredRateLimitBuckets: expiredRateLimits.count,
       message: `Deleted ${result.count} expired pending signups`,
     });
 
@@ -49,14 +41,6 @@ async function handleRequest(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-export async function GET(request: NextRequest) {
-  return handleRequest(request);
-}
-
-export async function POST(request: NextRequest) {
-  return handleRequest(request);
 }
 
 // For Vercel Cron Jobs, add this to vercel.json:

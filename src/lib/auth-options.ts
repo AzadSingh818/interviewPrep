@@ -4,17 +4,17 @@ import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
-import { env } from './env';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
 
 interface JWTPayload {
   userId: number;
   email: string;
   role: string;
-  tokenVersion: number;
 }
 
 function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
 /**
@@ -27,15 +27,14 @@ function isGoogleAccountPhoto(url: string | null | undefined): boolean {
   return url.includes('googleusercontent.com') || url.includes('ggpht.com');
 }
 
-export function buildAuthOptions(): AuthOptions {
-  return {
-      providers: [
-      GoogleProvider({
-        clientId: env.GOOGLE_CLIENT_ID,
-        clientSecret: env.GOOGLE_CLIENT_SECRET,
-      }),
-    ],
-    callbacks: {
+export const authOptions: AuthOptions = {
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+  ],
+  callbacks: {
     async jwt({ token, account, profile }) {
       console.log('🔍 [jwt] Callback - account:', !!account, 'profile:', !!profile);
 
@@ -63,6 +62,8 @@ export function buildAuthOptions(): AuthOptions {
           if (user) {
             console.log('✅ [jwt] Existing user found:', user.id, 'Role:', user.role);
 
+            const finalRole = user.role === 'ADMIN' ? user.role : requestedRole;
+
             // ─── PHOTO PROTECTION ─────────────────────────────────────────────
             // If the user has uploaded a custom photo (any non-Google URL),
             // NEVER overwrite it — even if they sign in with Google again.
@@ -88,10 +89,12 @@ export function buildAuthOptions(): AuthOptions {
                 name,
                 profilePicture: photoToSave,
                 emailVerified:  true,
+                role:           finalRole as any,
               },
             });
 
-            console.log('✅ [jwt] User updated. Role preserved:', user.role);
+            user = { ...user, role: finalRole as any };
+            console.log('✅ [jwt] User updated. Role:', finalRole);
 
           } else {
             console.log('✅ [jwt] Creating NEW user with role:', requestedRole);
@@ -116,7 +119,6 @@ export function buildAuthOptions(): AuthOptions {
             userId: user.id,
             email:  user.email,
             role:   user.role,
-            tokenVersion: user.tokenVersion,
           });
 
           token.customToken = customToken;
@@ -198,12 +200,11 @@ export function buildAuthOptions(): AuthOptions {
 
       return baseUrl;
     },
-    },
-    pages: {
-      signIn: '/login/student',
-      error:  '/login/student',
-    },
-    secret:  env.NEXTAUTH_SECRET,
-    session: { strategy: 'jwt' },
-  };
-}
+  },
+  pages: {
+    signIn: '/login/student',
+    error:  '/login/student',
+  },
+  secret:  process.env.NEXTAUTH_SECRET,
+  session: { strategy: 'jwt' },
+};

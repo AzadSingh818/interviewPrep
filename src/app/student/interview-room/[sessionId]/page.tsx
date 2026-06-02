@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 interface ChatMessage {
@@ -9,21 +9,6 @@ interface ChatMessage {
   senderName: string;
   text: string;
   timestamp: Date;
-}
-
-function attachVideoStream(ref: RefObject<HTMLVideoElement>, stream: MediaStream | null): boolean {
-  const video = ref.current;
-  if (!video || !stream) return false;
-
-  try {
-    if (video.srcObject !== stream) {
-      video.srcObject = stream;
-    }
-    return true;
-  } catch (error) {
-    console.error("Failed to attach video stream:", error);
-    return false;
-  }
 }
 
 export default function StudentInterviewRoom() {
@@ -204,7 +189,7 @@ export default function StudentInterviewRoom() {
         audio: true,
       });
       localStreamRef.current = stream;
-      attachVideoStream(localVideoRef, stream);
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     } catch {
       addSystemMessage(
@@ -215,7 +200,8 @@ export default function StudentInterviewRoom() {
     // When we receive remote tracks, show interviewer video
     pc.ontrack = (event) => {
       console.log("Student: received remote track", event.streams.length);
-      if (attachVideoStream(remoteVideoRef, event.streams[0] || null)) {
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
         setRemoteStream(true);
         setConnectionStatus("connected");
         addSystemMessage("Interviewer connected!");
@@ -332,7 +318,9 @@ export default function StudentInterviewRoom() {
           .find((s) => s.track?.kind === "video");
         await sender?.replaceTrack(videoTrack);
       }
-      attachVideoStream(localVideoRef, localStreamRef.current);
+      if (localVideoRef.current && localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+      }
       setIsScreenSharing(false);
       addSystemMessage("Screen sharing stopped.");
     } else {
@@ -347,7 +335,7 @@ export default function StudentInterviewRoom() {
           ?.getSenders()
           .find((s) => s.track?.kind === "video");
         await sender?.replaceTrack(screenTrack);
-        attachVideoStream(localVideoRef, screenStream);
+        if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
         screenTrack.onended = () => {
           setIsScreenSharing(false);
           const camTrack = localStreamRef.current?.getVideoTracks()[0];
@@ -357,7 +345,8 @@ export default function StudentInterviewRoom() {
               .find((x) => x.track?.kind === "video");
             s?.replaceTrack(camTrack);
           }
-          attachVideoStream(localVideoRef, localStreamRef.current);
+          if (localVideoRef.current && localStreamRef.current)
+            localVideoRef.current.srcObject = localStreamRef.current;
           addSystemMessage("Screen sharing stopped.");
         };
         setIsScreenSharing(true);
@@ -425,30 +414,30 @@ export default function StudentInterviewRoom() {
 
   return (
     <div
-      className="relative flex h-[100dvh] min-h-screen bg-gray-950 text-white overflow-hidden"
+      className="flex h-screen bg-gray-950 text-white overflow-hidden"
       style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
     >
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-6 py-3 bg-gray-900 border-b border-gray-800 safe-px">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        <div className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center">
                 <CamOnIcon />
               </div>
               <span className="font-semibold text-sm">InterviewPrepLive</span>
             </div>
-            <div className="hidden sm:block h-5 w-px bg-gray-700" />
-            <span className="hidden sm:block text-xs text-gray-400 font-mono">
+            <div className="h-5 w-px bg-gray-700" />
+            <span className="text-xs text-gray-400 font-mono">
               Session #{sessionId}
             </span>
-            <div className="bg-violet-500/20 border border-violet-500/40 rounded-full px-2 py-0.5 shrink-0">
+            <div className="bg-violet-500/20 border border-violet-500/40 rounded-full px-2.5 py-0.5">
               <span className="text-xs text-violet-400 font-medium">
                 Student View
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-gray-800 rounded-full px-3 py-1.5">
               <span
                 className={`w-2 h-2 rounded-full ${statusColors[connectionStatus]} ${connectionStatus === "connected" ? "animate-pulse" : ""}`}
@@ -471,7 +460,7 @@ export default function StudentInterviewRoom() {
         </div>
 
         {/* Video area */}
-        <div className="flex-1 relative bg-gray-950 p-2 sm:p-4">
+        <div className="flex-1 relative bg-gray-950 p-4">
           <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
             {remoteStream ? (
               <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
@@ -517,7 +506,7 @@ export default function StudentInterviewRoom() {
           </div>
 
           {/* PiP - local video */}
-          <div className="absolute bottom-3 right-3 sm:bottom-8 sm:right-8 w-32 h-24 sm:w-48 sm:h-36 rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl bg-gray-800">
+          <div className="absolute bottom-8 right-8 w-48 h-36 rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl bg-gray-800">
             <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             {!isCameraOn && !isScreenSharing && (
               <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
@@ -538,26 +527,26 @@ export default function StudentInterviewRoom() {
         </div>
 
         {/* Controls */}
-        <div className="bg-gray-900 border-t border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex flex-wrap items-center justify-center gap-2 sm:gap-4 safe-px safe-pb">
+        <div className="bg-gray-900 border-t border-gray-800 px-6 py-4 flex items-center justify-center gap-4">
           <ControlBtn on={isMicOn} onClick={toggleMic} onIcon={<MicOnIcon />} offIcon={<MicOffIcon />} title={isMicOn ? "Mute" : "Unmute"} />
           <ControlBtn on={isCameraOn} onClick={toggleCamera} onIcon={<CamOnIcon />} offIcon={<CamOffIcon />} title={isCameraOn ? "Turn off camera" : "Turn on camera"} />
           <button
             onClick={toggleScreenShare}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isScreenSharing ? "bg-blue-500 text-white" : "bg-gray-700 hover:bg-gray-600 text-white"}`}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isScreenSharing ? "bg-blue-500 text-white" : "bg-gray-700 hover:bg-gray-600 text-white"}`}
             title={isScreenSharing ? "Stop sharing" : "Share screen"}
           >
             <ScreenShareIcon />
           </button>
           <button
             onClick={() => setIsChatOpen((o) => !o)}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isChatOpen ? "bg-violet-600" : "bg-gray-700 hover:bg-gray-600"}`}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isChatOpen ? "bg-violet-600" : "bg-gray-700 hover:bg-gray-600"}`}
             title="Toggle chat"
           >
             <ChatIcon />
           </button>
           <button
             onClick={endCall}
-            className="w-14 h-12 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center transition-all ml-1 sm:ml-4"
+            className="w-14 h-12 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center transition-all hover:scale-105 ml-4"
             title="Leave session"
           >
             <EndCallIcon />
@@ -566,19 +555,17 @@ export default function StudentInterviewRoom() {
       </div>
 
       {isChatOpen && (
-        <div className="fixed inset-x-2 bottom-2 z-40 h-[56dvh] max-h-[calc(100dvh-10rem)] sm:max-h-[30rem] md:static md:inset-auto md:h-auto md:max-h-none md:w-80">
-          <ChatPanel
-            messages={chatMessages}
-            input={chatInput}
-            onInput={setChatInput}
-            onSend={sendMessage}
-            onClose={() => setIsChatOpen(false)}
-            senderRole="student"
-            bottomRef={chatBottomRef}
-            accentClass="bg-violet-600"
-            inputFocusClass="focus:border-violet-500"
-          />
-        </div>
+        <ChatPanel
+          messages={chatMessages}
+          input={chatInput}
+          onInput={setChatInput}
+          onSend={sendMessage}
+          onClose={() => setIsChatOpen(false)}
+          senderRole="student"
+          bottomRef={chatBottomRef}
+          accentClass="bg-violet-600"
+          inputFocusClass="focus:border-violet-500"
+        />
       )}
     </div>
   );
@@ -592,7 +579,7 @@ function ControlBtn({ on, onClick, onIcon, offIcon, title }: {
 }) {
   return (
     <button onClick={onClick} title={title}
-      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${on ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-red-500/20 border border-red-500 text-red-400"}`}>
+      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${on ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-red-500/20 border border-red-500 text-red-400"}`}>
       {on ? onIcon : offIcon}
     </button>
   );
@@ -607,7 +594,7 @@ interface ChatPanelProps {
 }
 function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bottomRef, accentClass, inputFocusClass }: ChatPanelProps) {
   return (
-    <div className="h-full w-full md:w-80 flex flex-col bg-gray-900 border border-gray-800 md:border-l md:border-gray-800 rounded-2xl md:rounded-none overflow-hidden">
+    <div className="w-80 flex flex-col bg-gray-900 border-l border-gray-800">
       <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ChatIcon className="w-4 h-4 text-violet-400" />
@@ -645,7 +632,7 @@ function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bott
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="p-4 border-t border-gray-800 safe-pb">
+      <div className="p-4 border-t border-gray-800">
         <div className="flex gap-2">
           <input type="text" value={input} onChange={(e) => onInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSend()}
@@ -653,7 +640,7 @@ function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bott
             className={`flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none transition-colors ${inputFocusClass}`}
           />
           <button onClick={onSend} disabled={!input.trim()}
-            className={`w-11 h-11 rounded-xl ${accentClass} hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all`}>
+            className={`w-9 h-9 rounded-xl ${accentClass} hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105`}>
             <SendIcon />
           </button>
         </div>

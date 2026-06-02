@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
-import { PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
 import { InterviewType } from '@prisma/client';
 import { sendBookingConfirmationToStudent, sendBookingNotificationToInterviewer } from '@/lib/email';
 
@@ -206,7 +205,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'LIMIT_REACHED',
           message: studentProfile.planType === 'FREE'
-            ? `You have used all 5 free interviews. Upgrade to Pro for ${PRO_PLAN_PRICE_DISPLAY}/month to get 10 more.`
+            ? 'You have used all 5 free interviews. Upgrade to Pro for ₹99/month to get 10 more.'
             : 'You have used all 10 interviews for this month. Renew your plan to continue.',
           planType: studentProfile.planType,
           used:     studentProfile.interviewsUsed,
@@ -243,114 +242,74 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let booked:
-      | {
-          session: any;
-          winner: ScoredInterviewer;
-          winnerFull: any;
-          beforeMins: number;
-          afterMins: number;
-        }
-      | null = null;
+    const winner   = scored[0];
+    // Find full candidate record for email data (includes user.email, companies, etc.)
+    const winnerFull = candidates.find((c: any) => c.id === winner.id)! as any;
+    const slot     = winner.bestSlot;
 
-    for (const candidate of scored) {
-      const candidateFull = candidates.find((c: any) => c.id === candidate.id)! as any;
-      const slot = candidate.bestSlot;
-      const beforeMins = (sessionStart.getTime() - slot.startTime.getTime()) / 60_000;
-      const afterMins = (slot.endTime.getTime() - sessionEnd.getTime()) / 60_000;
+    // ── Slot splitting ────────────────────────────────────────────────────────
+    const beforeMins = (sessionStart.getTime() - slot.startTime.getTime()) / 60_000;
+    const afterMins  = (slot.endTime.getTime()  - sessionEnd.getTime())    / 60_000;
 
-      try {
-        const createdSession = await prisma.$transaction(async (tx) => {
-          const claimed = await tx.availabilitySlot.updateMany({
-            where: {
-              id: slot.id,
-              interviewerId: candidate.id,
-              isBooked: false,
-              startTime: { lte: sessionStart },
-              endTime: { gte: sessionEnd },
-            },
-            data: { isBooked: true },
-          });
+    const ops: any[] = [
+      // 1. Consume original slot
+      prisma.availabilitySlot.update({
+        where: { id: slot.id },
+        data:  { isBooked: true },
+      }),
 
-          if (claimed.count === 0) {
-            throw new Error('SLOT_UNAVAILABLE');
-          }
+      // 2. Create session
+      prisma.session.create({
+        data: {
+          studentId:       studentProfile.id,
+          interviewerId:   winner.id,
+          sessionType:     'INTERVIEW',
+          role,
+          difficulty:      difficulty as any,
+          interviewType:   interviewType as InterviewType,
+          durationMinutes: duration,
+          scheduledTime:   sessionStart,
+        },
+        include: { interviewer: { select: { name: true } } },
+      }),
 
-          const quotaUpdated = await tx.studentProfile.updateMany({
-            where: {
-              id: studentProfile.id,
-              interviewsUsed: { lt: studentProfile.interviewsLimit },
-            },
-            data: { interviewsUsed: { increment: 1 } },
-          });
+      // 3. Increment interview usage
+      prisma.studentProfile.update({
+        where: { id: studentProfile.id },
+        data:  { interviewsUsed: { increment: 1 } },
+      }),
+    ];
 
-          if (quotaUpdated.count === 0) {
-            throw new Error('LIMIT_REACHED');
-          }
-
-          const created = await tx.session.create({
-            data: {
-              studentId: studentProfile.id,
-              interviewerId: candidate.id,
-              sessionType: 'INTERVIEW',
-              role,
-              difficulty: difficulty as any,
-              interviewType: interviewType as InterviewType,
-              durationMinutes: duration,
-              scheduledTime: sessionStart,
-            },
-            include: { interviewer: { select: { name: true } } },
-          });
-
-          if (beforeMins >= MIN_REMAINDER_MINUTES) {
-            await tx.availabilitySlot.create({
-              data: {
-                interviewerId: candidate.id,
-                startTime: slot.startTime,
-                endTime: sessionStart,
-                isBooked: false,
-              },
-            });
-          }
-
-          if (afterMins >= MIN_REMAINDER_MINUTES) {
-            await tx.availabilitySlot.create({
-              data: {
-                interviewerId: candidate.id,
-                startTime: sessionEnd,
-                endTime: slot.endTime,
-                isBooked: false,
-              },
-            });
-          }
-
-          return created;
-        });
-
-        booked = {
-          session: createdSession,
-          winner: candidate,
-          winnerFull: candidateFull,
-          beforeMins,
-          afterMins,
-        };
-        break;
-      } catch (error: any) {
-        if (error.message === 'SLOT_UNAVAILABLE') {
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    if (!booked) {
-      return NextResponse.json(
-        { error: 'No suitable slot is available anymore. Please try another time.' },
-        { status: 409 },
+    // 4. Keep BEFORE gap
+    if (beforeMins >= MIN_REMAINDER_MINUTES) {
+      ops.push(
+        prisma.availabilitySlot.create({
+          data: {
+            interviewerId: winner.id,
+            startTime:     slot.startTime,
+            endTime:       sessionStart,
+            isBooked:      false,
+          },
+        }),
       );
     }
 
-    const { session, winner, winnerFull, beforeMins, afterMins } = booked;
+    // 5. Keep AFTER gap
+    if (afterMins >= MIN_REMAINDER_MINUTES) {
+      ops.push(
+        prisma.availabilitySlot.create({
+          data: {
+            interviewerId: winner.id,
+            startTime:     sessionEnd,
+            endTime:       slot.endTime,
+            isBooked:      false,
+          },
+        }),
+      );
+    }
+
+    const results = await prisma.$transaction(ops);
+    const session = results[1];
 
     // ── Send booking confirmation emails (non-blocking) ───────────────────────
     const emailData = {
@@ -393,13 +352,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    if (error.message === 'LIMIT_REACHED') {
-      return NextResponse.json(
-        { error: 'LIMIT_REACHED', message: 'Interview session limit reached.' },
-        { status: 403 },
-      );
-    }
-
     console.error('Book interview error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },

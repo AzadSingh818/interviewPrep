@@ -3,24 +3,52 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { CareerLevel, SessionType, InterviewType } from '@prisma/client';
 
-function parseLinkedInProfileUrl(linkedinUrl: string): string | null {
+// ─── LinkedIn og:image scraper ────────────────────────────────────────────────
+async function fetchLinkedInPhoto(linkedinUrl: string): Promise<string | null> {
   try {
-    const normalized = linkedinUrl.trim().startsWith('http')
-      ? linkedinUrl.trim()
-      : `https://${linkedinUrl.trim()}`;
-    const url = new URL(normalized);
-    const host = url.hostname.toLowerCase();
-    const isLinkedInHost = host === 'linkedin.com' || host === 'www.linkedin.com';
-    const isProfilePath = url.pathname.startsWith('/in/') || url.pathname.startsWith('/pub/');
+    const url = linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+      },
+      signal: AbortSignal.timeout(7000),
+    });
 
-    if (url.protocol !== 'https:' || !isLinkedInHost || !isProfilePath || url.username || url.password) {
-      return null;
+    if (!res.ok) return null;
+
+    const html = await res.text();
+
+    const ogMatch =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+
+    if (ogMatch?.[1]) {
+      const url = ogMatch[1];
+      const isGeneric =
+        url.includes('linkedin-no-photo') ||
+        url.includes('ghost_person') ||
+        url.includes('LI-Bug') ||
+        url.includes('linkedin.com/sc/h/') ||
+        url.includes('/static/images/') ||
+        url.length < 30;
+
+      if (!isGeneric) return url;
     }
 
-    return url.toString();
+    return null;
   } catch {
     return null;
   }
+}
+
+function isGooglePhoto(url: string | null | undefined): boolean {
+  // null/undefined = no photo, treat same as "no custom photo"
+  if (!url) return true;
+  return url.includes('googleusercontent.com') || url.includes('ggpht.com');
 }
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
@@ -105,9 +133,11 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Validate LinkedIn URL format ──────────────────────────────────────────
-    const normalizedLinkedInUrl = parseLinkedInProfileUrl(linkedinUrl);
+    const isValidLinkedIn =
+      linkedinUrl.includes('linkedin.com/in/') ||
+      linkedinUrl.includes('linkedin.com/pub/');
 
-    if (!normalizedLinkedInUrl) {
+    if (!isValidLinkedIn) {
       return NextResponse.json(
         { error: 'Please provide a valid LinkedIn profile URL (linkedin.com/in/...)' },
         { status: 400 },
@@ -125,7 +155,7 @@ export async function POST(request: NextRequest) {
       interviewTypesOffered: sessionTypesOffered.includes('INTERVIEW')
         ? (interviewTypesOffered as InterviewType[])
         : ([] as InterviewType[]),
-      linkedinUrl: normalizedLinkedInUrl,
+      linkedinUrl: linkedinUrl.trim(),
     };
 
     // ── Upsert profile ────────────────────────────────────────────────────────
@@ -141,7 +171,30 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({ profile, user: currentUser, linkedinPhotoSynced: false });
+    // ── Auto-sync LinkedIn photo ──────────────────────────────────────────────
+    // Only if user has no custom photo yet (null or still a Google default)
+    const currentPhoto         = currentUser?.profilePicture;
+    const hasNoCustomPhoto     = isGooglePhoto(currentPhoto);
+    const alreadyLinkedInPhoto =
+      currentPhoto?.includes('licdn.com') || currentPhoto?.includes('media.linkedin.com');
+
+    let userData = currentUser;
+    let linkedinPhotoSynced = false;
+
+    if (hasNoCustomPhoto && !alreadyLinkedInPhoto) {
+      const photoUrl = await fetchLinkedInPhoto(linkedinUrl.trim());
+
+      if (photoUrl) {
+        userData = await prisma.user.update({
+          where:  { id: userId },
+          data:   { profilePicture: photoUrl },
+          select: { id: true, email: true, name: true, profilePicture: true, provider: true },
+        });
+        linkedinPhotoSynced = true;
+      }
+    }
+
+    return NextResponse.json({ profile, user: userData, linkedinPhotoSynced });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Internal server error' },

@@ -29,13 +29,13 @@ export function SessionCard({ session, viewType, showFeedbackButton = true }: Se
   const needsFeedback = !isUpcoming && session.status === 'SCHEDULED' && !session.feedback;
 
   return (
-    <Card variant="bordered" className="p-4 sm:p-6">
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+    <Card variant="bordered" className="p-6">
+      <div className="flex justify-between items-start">
         <div className="flex-1">
           {/* Session Type Badge */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-2">
             <span
-              className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
                 session.sessionType === 'GUIDANCE'
                   ? 'bg-indigo-100 text-indigo-700'
                   : 'bg-violet-100 text-violet-700'
@@ -46,33 +46,33 @@ export function SessionCard({ session, viewType, showFeedbackButton = true }: Se
             
             {/* Status Badge */}
             {session.status === 'COMPLETED' && (
-              <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-700">
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
                 ✓ Completed
               </span>
             )}
             {isUpcoming && (
-              <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-blue-100 text-blue-700">
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700">
                 Upcoming
               </span>
             )}
             {needsFeedback && viewType === 'interviewer' && (
-              <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-amber-100 text-amber-700">
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
                 Needs Feedback
               </span>
             )}
             
-            <span className="text-xs sm:text-sm text-slate-500 w-full sm:w-auto">
+            <span className="text-sm text-slate-500">
               {session.durationMinutes} minutes
             </span>
           </div>
 
           {/* Session Title */}
-          <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1 break-words">
+          <h3 className="text-lg font-semibold text-slate-900 mb-1">
             {session.sessionType === 'GUIDANCE' ? session.topic : session.role}
           </h3>
 
           {/* Participant Info */}
-          <p className="text-slate-600 text-sm sm:text-base mb-2 break-words">
+          <p className="text-slate-600 mb-2">
             {viewType === 'student' && session.interviewer && (
               <>with <span className="font-medium">{session.interviewer.name}</span></>
             )}
@@ -83,7 +83,7 @@ export function SessionCard({ session, viewType, showFeedbackButton = true }: Se
 
           {/* Additional Info */}
           {session.difficulty && (
-            <p className="text-sm text-slate-500 mb-2 break-words">
+            <p className="text-sm text-slate-500 mb-2">
               <span className="font-medium">Difficulty:</span> {session.difficulty}
             </p>
           )}
@@ -95,11 +95,11 @@ export function SessionCard({ session, viewType, showFeedbackButton = true }: Se
         </div>
 
         {/* Action Buttons */}
-        <div className="flex w-full lg:w-auto flex-col sm:flex-row lg:flex-col gap-2 lg:items-stretch">
+        <div className="flex flex-col gap-2">
           {/* View Feedback Button for Students */}
           {viewType === 'student' && session.feedback && showFeedbackButton && (
-            <Link href={`/student/feedback/${session.id}`} className="w-full sm:w-auto">
-              <button className="w-full min-h-11 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-[0.98] transition-all text-sm font-medium">
+            <Link href={`/student/feedback/${session.id}`}>
+              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
                 View Feedback
               </button>
             </Link>
@@ -107,8 +107,8 @@ export function SessionCard({ session, viewType, showFeedbackButton = true }: Se
 
           {/* Submit Feedback Button for Interviewers */}
           {viewType === 'interviewer' && needsFeedback && showFeedbackButton && (
-            <Link href={`/interviewer/feedback/${session.id}`} className="w-full sm:w-auto">
-              <button className="w-full min-h-11 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-[0.98] transition-all text-sm font-medium">
+            <Link href={`/interviewer/feedback/${session.id}`}>
+              <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
                 Submit Feedback
               </button>
             </Link>

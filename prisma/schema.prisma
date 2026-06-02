@@ -21,7 +21,6 @@ model User {
   profilePicture          String?             @map("profile_picture")
   verificationToken       String?             @map("verification_token")
   verificationTokenExpiry DateTime?           @map("verification_token_expiry") @db.Timestamp(6)
-  tokenVersion            Int                 @default(0) @map("token_version")
   interviewerProfile      InterviewerProfile?
   studentProfile          StudentProfile?
 
@@ -49,7 +48,6 @@ model StudentProfile {
   planType                       PlanType                  @default(FREE) @map("plan_type")
   resumeUrl                      String?                   @map("resume_url")
   preferredInterviewerUnlocked   Boolean                   @default(false) @map("preferred_interviewer_unlocked")
-  featureUnlocks                 FeatureUnlock[]
   manualBookingRequests          ManualBookingRequest[]
   sessions                       Session[]
   user                           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -204,65 +202,18 @@ model ManualBookingRequest {
   @@map("manual_booking_requests")
 }
 
-model FeatureUnlock {
-  id                Int               @id @default(autoincrement())
-  studentId         Int               @map("student_id")
-  feature           FeatureUnlockType @default(PREFERRED_INTERVIEWER)
-  razorpayOrderId   String            @unique @map("razorpay_order_id")
-  razorpayPaymentId String?           @unique @map("razorpay_payment_id")
-  razorpaySignature String?           @map("razorpay_signature")
-  amount            Int
-  currency          String            @default("INR")
-  paymentStatus     PaymentStatus     @default(PENDING) @map("payment_status")
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
-  student           StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@index([studentId])
-  @@map("feature_unlocks")
-}
-
 model SignalingRoom {
   id                   String   @id  // sessionId as string
   offer                Json?
   answer               Json?
-  studentCandidates    Json     @default("[]")
-  interviewerCandidates Json    @default("[]")
-  messages             Json     @default("[]")
+  studentCandidates Json @default([])
+interviewerCandidates Json @default([])
+  messages Json @default([])
   offerTimestamp       BigInt   @default(0)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
   @@map("signaling_rooms")
-}
-
-model PaymentWebhookEvent {
-  id              Int       @id @default(autoincrement())
-  provider        String    @default("RAZORPAY")
-  eventId         String    @unique @map("event_id")
-  eventType       String    @map("event_type")
-  orderId         String?   @map("order_id")
-  paymentId       String?   @map("payment_id")
-  payload         Json
-  processedAt     DateTime? @map("processed_at")
-  processingError String?   @map("processing_error")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  @@index([orderId])
-  @@index([paymentId])
-  @@map("payment_webhook_events")
-}
-
-model RateLimitBucket {
-  key       String   @id
-  count     Int      @default(0)
-  resetAt   DateTime @map("reset_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([resetAt])
-  @@map("rate_limit_buckets")
 }
 
 enum UserRole {
@@ -341,8 +292,4 @@ enum ManualBookingStatus {
   PENDING
   ASSIGNED
   CANCELLED
-}
-
-enum FeatureUnlockType {
-  PREFERRED_INTERVIEWER
 }

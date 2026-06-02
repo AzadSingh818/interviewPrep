@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, authErrorStatus } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { hasValidFileSignature } from "@/lib/file-validation";
-import { env } from "@/lib/env";
 // ── Cloudinary upload via REST API (no SDK, no streams) ───────────────────────
 async function uploadToCloudinary(
   buffer: Buffer,
@@ -10,9 +8,9 @@ async function uploadToCloudinary(
   folder: string,
   resourceType: 'raw' | 'image' = 'raw',
 ): Promise<string> {
-  const cloudName = env.CLOUDINARY_CLOUD_NAME;
-  const apiKey    = env.CLOUDINARY_API_KEY;
-  const apiSecret = env.CLOUDINARY_API_SECRET;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME!;
+  const apiKey    = process.env.CLOUDINARY_API_KEY!;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET!;
   const timestamp = Math.floor(Date.now() / 1000);
 
   const paramsToSign = `folder=${folder}&overwrite=true&public_id=${filename}&timestamp=${timestamp}`;
@@ -50,9 +48,9 @@ async function deleteFromCloudinary(
   resourceType: 'raw' | 'image' = 'raw',
 ): Promise<void> {
   try {
-    const cloudName = env.CLOUDINARY_CLOUD_NAME;
-    const apiKey    = env.CLOUDINARY_API_KEY;
-    const apiSecret = env.CLOUDINARY_API_SECRET;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME!;
+    const apiKey    = process.env.CLOUDINARY_API_KEY!;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET!;
     const timestamp = Math.floor(Date.now() / 1000);
 
     const afterUpload = url.split('/upload/')[1];
@@ -129,14 +127,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const buffer  = Buffer.from(await resumeFile.arrayBuffer());
-      if (!hasValidFileSignature(buffer, resumeFile.type)) {
-        return NextResponse.json(
-          { error: "Resume content does not match the selected file type" },
-          { status: 400 },
-        );
+      if (existing?.resumeUrl?.includes('cloudinary.com')) {
+        await deleteFromCloudinary(existing.resumeUrl, 'raw');
       }
 
+      const buffer  = Buffer.from(await resumeFile.arrayBuffer());
       const filename = `resume_${userId}_${Date.now()}`; // no slashes
       updateData.resumeUrl = await uploadToCloudinary(buffer, filename, 'interviewer-docs', 'raw');
     }
@@ -159,14 +154,11 @@ export async function POST(request: NextRequest) {
       const isImage   = ['image/jpeg', 'image/png', 'image/webp'].includes(idCardFile.type);
       const resType   = isImage ? 'image' : 'raw';
 
-      const buffer   = Buffer.from(await idCardFile.arrayBuffer());
-      if (!hasValidFileSignature(buffer, idCardFile.type)) {
-        return NextResponse.json(
-          { error: "ID card content does not match the selected file type" },
-          { status: 400 },
-        );
+      if (existing?.idCardUrl?.includes('cloudinary.com')) {
+        await deleteFromCloudinary(existing.idCardUrl, resType);
       }
 
+      const buffer   = Buffer.from(await idCardFile.arrayBuffer());
       const filename  = `idcard_${userId}_${Date.now()}`; // no slashes
       updateData.idCardUrl = await uploadToCloudinary(buffer, filename, 'interviewer-docs', resType);
     }
@@ -184,15 +176,6 @@ export async function POST(request: NextRequest) {
       where: { userId },
       data:  updateData,
     });
-
-    if (updateData.resumeUrl && existing?.resumeUrl?.includes('cloudinary.com')) {
-      await deleteFromCloudinary(existing.resumeUrl, 'raw');
-    }
-
-    if (updateData.idCardUrl && existing?.idCardUrl?.includes('cloudinary.com')) {
-      const oldIdCardIsImage = existing.idCardUrl.includes('/image/upload/');
-      await deleteFromCloudinary(existing.idCardUrl, oldIdCardIsImage ? 'image' : 'raw');
-    }
 
     return NextResponse.json({
       success:   true,

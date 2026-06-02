@@ -4,20 +4,15 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { Modal, ModalFooter } from '@/components/ui/Modal';
-import { useToast } from '@/components/ui/Toast';
 import { formatDateTime } from '@/lib/utils';
 
 export default function InterviewerAvailabilityPage() {
-  const { toast } = useToast();
   const [slots, setSlots]       = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError]   = useState('');
   const [formData, setFormData] = useState({ startTime: '', endTime: '' });
-  const [slotToDelete, setSlotToDelete] = useState<number | null>(null);
-  const [deletingSlot, setDeletingSlot] = useState(false);
 
   useEffect(() => { fetchSlots(); }, []);
 
@@ -67,20 +62,16 @@ export default function InterviewerAvailabilityPage() {
   };
 
   const handleDeleteSlot = async (slotId: number) => {
-    setDeletingSlot(true);
+    if (!confirm('Are you sure you want to delete this slot?')) return;
     try {
       const res = await fetch('/api/interviewer/availability', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slotId }),
       });
-      if (res.ok) {
-        await fetchSlots();
-        setSlotToDelete(null);
-      }
-      else { const data = await res.json(); toast(data.error || 'Failed to delete slot', 'error'); }
-    } catch { toast('An error occurred. Please try again.', 'error'); }
-    finally { setDeletingSlot(false); }
+      if (res.ok) { await fetchSlots(); }
+      else { const data = await res.json(); alert(data.error || 'Failed to delete slot'); }
+    } catch { alert('An error occurred. Please try again.'); }
   };
 
   const now = new Date();
@@ -101,37 +92,6 @@ export default function InterviewerAvailabilityPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Modal
-        isOpen={slotToDelete !== null}
-        onClose={() => {
-          if (!deletingSlot) setSlotToDelete(null);
-        }}
-        title="Delete slot?"
-        size="sm"
-      >
-        <p className="text-sm text-slate-600">
-          This removes the availability slot from your calendar.
-        </p>
-        <ModalFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setSlotToDelete(null)}
-            disabled={deletingSlot}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            onClick={() => slotToDelete !== null && handleDeleteSlot(slotToDelete)}
-            disabled={deletingSlot}
-          >
-            {deletingSlot ? 'Deleting...' : 'Delete'}
-          </Button>
-        </ModalFooter>
-      </Modal>
-
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white">
@@ -225,7 +185,7 @@ export default function InterviewerAvailabilityPage() {
                           Duration: {durationMins} mins
                         </p>
                       </div>
-                      <Button onClick={() => setSlotToDelete(slot.id)} variant="danger" size="sm">
+                      <Button onClick={() => handleDeleteSlot(slot.id)} variant="danger" size="sm">
                         Delete
                       </Button>
                     </div>
@@ -300,7 +260,7 @@ export default function InterviewerAvailabilityPage() {
                     </p>
                     <p className="text-xs text-slate-400">Expired — not booked</p>
                   </div>
-                  <Button onClick={() => setSlotToDelete(slot.id)} variant="secondary" size="sm">
+                  <Button onClick={() => handleDeleteSlot(slot.id)} variant="secondary" size="sm">
                     Remove
                   </Button>
                 </div>

@@ -5,37 +5,6 @@
 :root {
   --font-inter: 'Inter', sans-serif;
   --font-outfit: 'Outfit', sans-serif;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-}
-
-html {
-  width: 100%;
-  min-height: 100%;
-  overflow-x: hidden;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-
-body {
-  width: 100%;
-  min-height: 100%;
-  overflow-x: hidden;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-}
-
-* {
-  min-width: 0;
-}
-
-img,
-video,
-canvas,
-svg {
-  max-width: 100%;
 }
 
 /* ── Light mode (default) ── */
@@ -110,32 +79,4 @@ html.dark ::-webkit-scrollbar-thumb {
 }
 html.dark ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-500;
-}
-
-@media (max-width: 768px) {
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-}
-
-@layer utilities {
-  .safe-pt {
-    padding-top: max(1rem, var(--safe-top));
-  }
-
-  .safe-pb {
-    padding-bottom: max(0.75rem, var(--safe-bottom));
-  }
-
-  .safe-px {
-    padding-left: max(0.75rem, var(--safe-left));
-    padding-right: max(0.75rem, var(--safe-right));
-  }
-
-  .tap-target {
-    min-width: 44px;
-    min-height: 44px;
-    touch-action: manipulation;
-  }
 }
