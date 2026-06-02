@@ -132,7 +132,6 @@ export async function POST(request: NextRequest) {
         scheduleCleanup(sessionId);
         return NextResponse.json({ success: true });
       }
-
       // ── Interviewer sends answer ───────────────────────────────────────────
       case 'answer': {
         await prisma.signalingRoom.upsert({
