@@ -206,9 +206,9 @@ model SignalingRoom {
   id                   String   @id  // sessionId as string
   offer                Json?
   answer               Json?
-  studentCandidates    Json     @default("[]")
-  interviewerCandidates Json    @default("[]")
-  messages             Json     @default("[]")
+  studentCandidates Json @default([])
+interviewerCandidates Json @default([])
+  messages Json @default([])
   offerTimestamp       BigInt   @default(0)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

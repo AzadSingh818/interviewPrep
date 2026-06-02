@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,8 +23,6 @@ async function getOrCreateRoom(sessionId: string) {
     where: { id: sessionId },
     create: {
       id: sessionId,
-      offer: undefined,
-      answer: undefined,
       studentCandidates: [],
       interviewerCandidates: [],
       messages: [],
@@ -69,8 +68,8 @@ export async function GET(request: NextRequest) {
         offer: room.offer ?? null,
         answer: room.answer ?? null,
         // Student receives interviewer's ICE candidates
-        iceCandidates: room.interviewerCandidates as RTCIceCandidateInit[],
-        messages: room.messages as ChatMessage[],
+        iceCandidates: room.interviewerCandidates as unknown as RTCIceCandidateInit[],
+        messages: room.messages as unknown as ChatMessage[],
       });
     }
 
@@ -79,8 +78,8 @@ export async function GET(request: NextRequest) {
       sessionId,
       offer: room.offer ?? null,
       answer: room.answer ?? null,
-      studentCandidates: room.studentCandidates as RTCIceCandidateInit[],
-      messages: room.messages as ChatMessage[],
+      studentCandidates: room.studentCandidates as unknown as RTCIceCandidateInit[],
+      messages: room.messages as unknown as ChatMessage[],
     });
   } catch (error) {
     console.error('GET /api/interview-room error:', error);
@@ -116,7 +115,6 @@ export async function POST(request: NextRequest) {
           create: {
             id: sessionId,
             offer,
-            answer: undefined,
             studentCandidates: [],
             interviewerCandidates: [],
             messages: [],
@@ -124,7 +122,7 @@ export async function POST(request: NextRequest) {
           },
           update: {
             offer,
-            answer: undefined,        // clear stale answer
+            answer: "",             // clear stale answer
             studentCandidates: [],    // clear stale candidates
             interviewerCandidates: [],
             offerTimestamp: BigInt(Date.now()),
@@ -165,7 +163,7 @@ export async function POST(request: NextRequest) {
         const key = JSON.stringify(candidate);
 
         if (role === 'student') {
-          const existing = room.studentCandidates as RTCIceCandidateInit[];
+          const existing = room.studentCandidates as unknown as RTCIceCandidateInit[];
           if (!existing.some((c) => JSON.stringify(c) === key)) {
             await prisma.signalingRoom.update({
               where: { id: sessionId },
@@ -176,7 +174,7 @@ export async function POST(request: NextRequest) {
             });
           }
         } else {
-          const existing = room.interviewerCandidates as RTCIceCandidateInit[];
+          const existing = room.interviewerCandidates as unknown as RTCIceCandidateInit[];
           if (!existing.some((c) => JSON.stringify(c) === key)) {
             await prisma.signalingRoom.update({
               where: { id: sessionId },
@@ -206,12 +204,12 @@ export async function POST(request: NextRequest) {
         };
 
         const room = await getOrCreateRoom(sessionId);
-        const messages = room.messages as ChatMessage[];
+        const messages = room.messages as unknown as ChatMessage[];
         const updated = [...messages, message].slice(-200); // keep last 200
 
         await prisma.signalingRoom.update({
           where: { id: sessionId },
-          data: { messages: updated, updatedAt: new Date() },
+          data: { messages: updated as unknown as Prisma.InputJsonValue, updatedAt: new Date() },
         });
 
         return NextResponse.json({ success: true, message });
