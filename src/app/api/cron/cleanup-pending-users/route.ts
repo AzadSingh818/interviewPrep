@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { readRequiredEnv } from '@/lib/env';
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function handleRequest(request: NextRequest) {
   try {
     // Verify this is being called by authorized source
     // For production, add authentication here
@@ -49,6 +49,14 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleRequest(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleRequest(request);
 }
 
 // For Vercel Cron Jobs, add this to vercel.json:

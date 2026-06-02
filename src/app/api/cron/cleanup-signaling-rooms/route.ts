@@ -4,7 +4,7 @@ import { readRequiredEnv } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function handleRequest(request: NextRequest) {
   try {
     const cronSecret = readRequiredEnv('CRON_SECRET');
 
@@ -39,4 +39,12 @@ export async function GET(request: NextRequest) {
     console.error('Signaling room cleanup error:', error);
     return NextResponse.json({ error: 'Signaling room cleanup failed' }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleRequest(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleRequest(request);
 }

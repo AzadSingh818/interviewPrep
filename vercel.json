@@ -12,19 +12,5 @@
       "maxDuration": 30,
       "memory": 1024
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/session-reminders",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/cleanup-signaling-rooms",
-      "schedule": "15 3 * * *"
-    },
-    {
-      "path": "/api/cron/cleanup-pending-users",
-      "schedule": "45 3 * * *"
-    }
-  ]
+  }
 }
