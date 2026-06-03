@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
-import { useToast } from "@/components/ui/Toast";
 
 // ─── Interview type display labels ────────────────────────────────────────────
 const INTERVIEW_TYPE_LABELS: Record<string, string> = {
@@ -83,6 +81,11 @@ function ProfileHeader({
   userInitials: string;
   onPhotoUpdated: () => void;
 }) {
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<{
+    type: "success" | "error" | "warn";
+    text: string;
+  } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<{
     type: "success" | "error";
@@ -90,6 +93,48 @@ function ProfileHeader({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoReady = hasCustomPhoto(user);
+
+  const handleLinkedInSync = async () => {
+    if (!profile?.linkedinUrl) {
+      setSyncMsg({
+        type: "warn",
+        text: "Add your LinkedIn URL in the profile form first.",
+      });
+      return;
+    }
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch("/api/interviewer/sync-linkedin-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkedinUrl: profile.linkedinUrl }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMsg({
+          type: "success",
+          text: "Profile photo synced from LinkedIn!",
+        });
+        onPhotoUpdated();
+      } else {
+        setSyncMsg({
+          type:
+            data.code === "PHOTO_NOT_FOUND" || data.code === "LINKEDIN_BLOCKED"
+              ? "warn"
+              : "error",
+          text: data.error || "Could not fetch photo from LinkedIn.",
+        });
+      }
+    } catch {
+      setSyncMsg({
+        type: "error",
+        text: "Something went wrong. Please try uploading manually.",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,11 +178,9 @@ function ProfileHeader({
         {/* Avatar */}
         <div className="relative shrink-0">
           {photoReady ? (
-            <Image
+            <img
               src={user.profilePicture}
               alt={displayName}
-              width={96}
-              height={96}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-white dark:border-slate-900 shadow-lg"
             />
           ) : (
@@ -207,17 +250,28 @@ function ProfileHeader({
             >
               {uploading ? "Uploading..." : "Change photo"}
             </button>
+            {profile?.linkedinUrl && (
+              <button
+                onClick={handleLinkedInSync}
+                disabled={syncing}
+                className="text-xs text-violet-600 dark:text-violet-300 hover:text-violet-800 dark:hover:text-violet-200 font-medium underline disabled:opacity-50"
+              >
+                {syncing ? "Syncing..." : "Sync from LinkedIn"}
+              </button>
+            )}
           </div>
 
-          {uploadMsg && (
+          {(syncMsg || uploadMsg) && (
             <p
               className={`text-xs mt-2 ${
-                uploadMsg.type === "success"
+                (syncMsg?.type || uploadMsg?.type) === "success"
                   ? "text-green-600 dark:text-green-300"
-                  : "text-red-600 dark:text-red-300"
+                  : (syncMsg?.type || uploadMsg?.type) === "warn"
+                    ? "text-amber-600 dark:text-amber-300"
+                    : "text-red-600 dark:text-red-300"
               }`}
             >
-              {uploadMsg.text}
+              {syncMsg?.text || uploadMsg?.text}
             </p>
           )}
         </div>
@@ -364,7 +418,6 @@ function DocumentUploadSection({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function InterviewerDashboardPage() {
-  const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -495,7 +548,7 @@ export default function InterviewerDashboardPage() {
           window.dispatchEvent(new Event("profile-saved"));
         }
       } else {
-        toast(data.error || "Failed to save profile", "error");
+        alert(data.error || "Failed to save profile");
       }
     } catch (error) {
       console.error("Failed to save profile:", error);

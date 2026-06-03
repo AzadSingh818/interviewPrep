@@ -1,28 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
-import {
-  checkRateLimit,
-  getClientIp,
-  normalizeRateLimitEmail,
-  rateLimitResponse,
-} from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email } = body;
-    const normalizedEmail = normalizeRateLimitEmail(email);
-    const clientIp = getClientIp(request);
-
-    const limit = await checkRateLimit({
-      key: `auth:resend-otp:${normalizedEmail}:${clientIp}`,
-      limit: 3,
-      windowMs: 60 * 60 * 1000,
-    });
-    if (!limit.allowed) {
-      return rateLimitResponse(limit.retryAfter);
-    }
 
     if (!email) {
       return NextResponse.json(
@@ -32,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find pending user
-    const pendingUser = await prisma.pendingUser.findUnique({
+    const pendingUser = await (prisma as any).pendingUser.findUnique({
       where: { email },
     });
 
@@ -46,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Check if account has expired (24 hours)
     if (pendingUser.expiresAt < new Date()) {
       // Delete expired pending user
-      await prisma.pendingUser.delete({
+      await (prisma as any).pendingUser.delete({
         where: { id: pendingUser.id },
       });
       
@@ -61,7 +44,7 @@ export async function POST(request: NextRequest) {
     const newExpiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Update pending user with new OTP
-    await prisma.pendingUser.update({
+    await (prisma as any).pendingUser.update({
       where: { id: pendingUser.id },
       data: {
         verificationToken: newOtp,

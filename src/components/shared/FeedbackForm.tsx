@@ -102,7 +102,7 @@ export function FeedbackForm({ sessionType, sessionId, onSubmit, onCancel }: Fee
       ) : (
         <>
           {/* Interview-specific fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Select
               label="Technical Depth (1-5)"
               value={formData.technicalDepth}
@@ -185,12 +185,12 @@ export function FeedbackForm({ sessionType, sessionId, onSubmit, onCancel }: Fee
       )}
 
       {/* Action Buttons */}
-      <div className="flex flex-col-reverse sm:flex-row gap-3">
+      <div className="flex gap-3">
         <Button type="submit" className="flex-1" disabled={loading}>
           {loading ? 'Submitting...' : 'Submit Feedback'}
         </Button>
         {onCancel && (
-          <Button type="button" variant="secondary" onClick={onCancel} className="w-full sm:w-auto">
+          <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
         )}

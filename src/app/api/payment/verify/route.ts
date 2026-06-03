@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
-import { env } from '@/lib/env';
-import { processSubscriptionPaymentCaptured } from '@/lib/payments';
 import crypto from 'crypto';
 
 const MONTHLY_INTERVIEW_LIMIT = 10;
@@ -24,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // ── 1. Verify Razorpay signature ─────────────────────────────────────────
     const expectedSignature = crypto
-      .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
@@ -50,35 +48,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // ── 3. Update subscription + student profile atomically and idempotently ─
-    const paymentResult = await processSubscriptionPaymentCaptured({
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      signature: razorpay_signature,
-    });
-
-    if (!paymentResult.processed || !('validUntil' in paymentResult)) {
-      return NextResponse.json({ error: 'Payment state conflict.' }, { status: 409 });
+    // Guard: prevent double-processing
+    if (subscription.status === 'PAID') {
+      return NextResponse.json({ success: true, alreadyProcessed: true });
     }
 
-    if (paymentResult.alreadyProcessed) {
-      return NextResponse.json({
-        success: true,
-        alreadyProcessed: true,
-        plan: paymentResult.validUntil
-          ? {
-              type: 'PRO',
-              interviewsLimit: MONTHLY_INTERVIEW_LIMIT,
-              guidanceLimit: MONTHLY_GUIDANCE_LIMIT,
-              validUntil: paymentResult.validUntil.toISOString(),
-            }
-          : undefined,
-      });
-    }
+    // ── 3. Calculate new plan period ─────────────────────────────────────────
+    // If student already has an active plan, extend from its expiry date.
+    // Otherwise start from today.
+    const now = new Date();
+    const currentExpiry = subscription.student.planExpiresAt;
+    const startFrom = currentExpiry && currentExpiry > now ? currentExpiry : now;
+    const validUntil = new Date(startFrom);
+    validUntil.setMonth(validUntil.getMonth() + 1);
 
-    if (!paymentResult.validUntil) {
-      throw new Error('Missing subscription validity after payment processing');
-    }
+    // ── 4. Update subscription + student profile atomically ──────────────────
+    await prisma.$transaction([
+      // Mark subscription as PAID
+      prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          razorpayPaymentId: razorpay_payment_id,
+          razorpaySignature: razorpay_signature,
+          status: 'PAID',
+          planType: 'PRO',
+          validFrom: startFrom,
+          validUntil,
+        },
+      }),
+      // Reset usage counters + set new limits + extend expiry
+      prisma.studentProfile.update({
+        where: { id: subscription.studentId },
+        data: {
+          planType: 'PRO',
+          interviewsUsed: 0,          // reset usage for the new month
+          guidanceUsed: 0,
+          interviewsLimit: MONTHLY_INTERVIEW_LIMIT,
+          guidanceLimit: MONTHLY_GUIDANCE_LIMIT,
+          planExpiresAt: validUntil,
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
@@ -86,7 +96,7 @@ export async function POST(request: NextRequest) {
         type: 'PRO',
         interviewsLimit: MONTHLY_INTERVIEW_LIMIT,
         guidanceLimit: MONTHLY_GUIDANCE_LIMIT,
-        validUntil: paymentResult.validUntil.toISOString(),
+        validUntil: validUntil.toISOString(),
       },
     });
   } catch (error: any) {

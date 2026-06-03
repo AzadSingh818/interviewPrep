@@ -117,10 +117,7 @@ export async function GET() {
     }
 
     const requests = await prisma.manualBookingRequest.findMany({
-      where: {
-        studentId: student.id,
-        razorpayOrderId: null,
-      },
+      where: { studentId: student.id },
       include: {
         interviewerProfile: {
           include: { user: { select: { name: true, profilePicture: true } } },

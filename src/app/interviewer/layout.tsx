@@ -4,15 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { validatePasswordPolicy } from '@/lib/password-policy';
 
 // ─── Dark Mode Hook ───────────────────────────────────────────────────────────
 function useDarkMode() {
-  const [dark, setDark] = useState(() =>
-    typeof document !== 'undefined'
-      ? document.documentElement.classList.contains('dark')
-      : false,
-  );
+  const [dark, setDark] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
@@ -97,8 +92,7 @@ function SettingsModal({
     e.preventDefault();
     setPwStatus(null);
     if (pwForm.next !== pwForm.confirm) { setPwStatus({ type: 'error', msg: 'New passwords do not match' }); return; }
-    const passwordPolicy = validatePasswordPolicy(pwForm.next);
-    if (!passwordPolicy.valid)          { setPwStatus({ type: 'error', msg: passwordPolicy.error || 'Password does not meet requirements' }); return; }
+    if (pwForm.next.length < 8)         { setPwStatus({ type: 'error', msg: 'Password must be at least 8 characters' }); return; }
     setPwLoading(true);
     try {
       const res = await fetch('/api/interviewer/change-password', {
@@ -155,23 +149,23 @@ function SettingsModal({
 
   if (!open) return null;
 
-  const inputCls  = 'w-full min-h-11 px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 focus:border-indigo-500 focus:outline-none transition-colors text-base sm:text-sm';
+  const inputCls  = 'w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 focus:border-indigo-500 focus:outline-none transition-colors text-sm';
   const labelCls  = 'block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4 safe-px safe-pb">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-gray-700 overflow-hidden max-h-[92dvh] sm:max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-gray-700 overflow-hidden max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-800 shrink-0">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Settings</h2>
           <button
             onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors font-bold"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors font-bold"
           >
             ✕
           </button>
@@ -187,7 +181,7 @@ function SettingsModal({
             <button
               key={t.key}
               onClick={() => { setTab(t.key); setPwStatus(null); setProfileStatus(null); }}
-              className={`flex-1 min-h-11 py-3 text-xs font-semibold transition-colors ${
+              className={`flex-1 py-3 text-xs font-semibold transition-colors ${
                 tab === t.key
                   ? 'text-indigo-600 border-b-2 border-indigo-600'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
@@ -199,7 +193,7 @@ function SettingsModal({
         </div>
 
         {/* Scrollable body */}
-        <div className="px-4 sm:px-6 py-5 overflow-y-auto">
+        <div className="px-6 py-5 overflow-y-auto">
 
           {/* ── Edit Profile Tab ── */}
           {tab === 'profile' && (
@@ -330,7 +324,7 @@ function SettingsModal({
               ) : (
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Update your login password. Use at least 8 characters with a letter and a number.
+                    Update your login password. Must be at least 8 characters.
                   </p>
                   <div>
                     <label className={labelCls}>Current Password</label>
@@ -459,7 +453,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
   ];
 
   return (
-    <div className="min-h-screen flex overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-[#09111f] dark:via-[#0b1324] dark:to-[#1a1b3a] transition-colors duration-200">
+    <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-[#09111f] dark:via-[#0b1324] dark:to-[#1a1b3a] transition-colors duration-200">
 
       {/* ── Backdrop overlay (when sidebar is open) ── */}
       {sidebarOpen && (
@@ -472,13 +466,13 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
       {/* ══════════════════════════════════════════════
           NARROW ICON STRIP — always visible on left
       ══════════════════════════════════════════════ */}
-      <div className="fixed top-0 left-0 h-full w-12 sm:w-14 bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-white/10 flex flex-col items-center py-3 z-50 shrink-0">
+      <div className="fixed top-0 left-0 h-full w-14 bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-white/10 flex flex-col items-center py-3 z-50 shrink-0">
 
         {/* Expand icon */}
         <button
           onClick={() => setSidebarOpen(true)}
           title="Open sidebar"
-          className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors mb-4"
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors mb-4"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M4 6h16M4 12h16M4 18h16"/>
@@ -495,7 +489,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
                 key={item.name}
                 title={item.name}
                 onClick={() => { if (isSettings) { setSettingsOpen(true); } }}
-                className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors text-base
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors text-base
                   ${isActive ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}
               >
                 {item.icon}
@@ -504,7 +498,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
             if (isSettings) return btn;
             return (
               <Link key={item.href} href={item.href} title={item.name}>
-                <div className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors text-base
+                <div className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors text-base
                   ${isActive ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}>
                   {item.icon}
                 </div>
@@ -518,7 +512,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           <button
             onClick={handleLogout}
             title="Logout"
-            className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -527,7 +521,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           <button
             onClick={() => setSidebarOpen(true)}
             title={displayName}
-            className="relative w-11 h-11 rounded-full overflow-hidden ring-2 ring-slate-200 dark:ring-white/10 hover:ring-indigo-400 transition-all"
+            className="relative w-9 h-9 rounded-full overflow-hidden ring-2 ring-slate-200 dark:ring-white/10 hover:ring-indigo-400 transition-all"
           >
             {user?.profilePicture ? (
               <Image src={user.profilePicture} alt={displayName} width={36} height={36} className="object-cover w-full h-full" />
@@ -544,7 +538,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           FULL SIDEBAR DRAWER — slides in over strip
       ══════════════════════════════════════════════ */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-[86vw] max-w-72 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/10 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden
+        className={`fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-white/10 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* ── Logo ── */}
@@ -662,7 +656,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
             <button
               onClick={handleLogout}
               title="Logout"
-              className="shrink-0 w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors touch-manipulation"
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -673,11 +667,11 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* ── Main content area ── */}
-      <main className="flex-1 ml-12 sm:ml-14 min-h-screen flex flex-col">
+      <main className="flex-1 ml-14 min-h-screen flex flex-col">
 
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white/85 dark:bg-slate-950/80 backdrop-blur border-b border-slate-100 dark:border-white/10">
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex justify-between items-center gap-3">
+          <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
             {/* Logo — visible at top always */}
             <Link href="/interviewer/dashboard" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg" />
@@ -721,7 +715,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
           </div>
         </header>
 
-        <div className="p-3 sm:p-6 flex-1">{children}</div>
+        <div className="p-6 flex-1">{children}</div>
       </main>
 
       {/* Settings Modal */}

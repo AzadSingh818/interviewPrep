@@ -2,36 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateToken, setAuthCookie } from '@/lib/auth';
 import { sendWelcomeEmail } from '@/lib/email';
-import { UserRole } from '@prisma/client';
-import {
-  checkRateLimit,
-  getClientIp,
-  normalizeRateLimitEmail,
-  rateLimitResponse,
-} from '@/lib/rate-limit';
-
-function parsePendingUserRole(role: string): UserRole | null {
-  if (role === UserRole.STUDENT || role === UserRole.INTERVIEWER) {
-    return role;
-  }
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, otp } = body;
-    const normalizedEmail = normalizeRateLimitEmail(email);
-    const clientIp = getClientIp(request);
-
-    const limit = await checkRateLimit({
-      key: `auth:verify-email:${normalizedEmail}:${clientIp}`,
-      limit: 5,
-      windowMs: 10 * 60 * 1000,
-    });
-    if (!limit.allowed) {
-      return rateLimitResponse(limit.retryAfter);
-    }
 
     if (!email || !otp) {
       return NextResponse.json(
@@ -41,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find pending user with matching email and OTP
-    const pendingUser = await prisma.pendingUser.findFirst({
+    const pendingUser = await (prisma as any).pendingUser.findFirst({
       where: {
         email,
         verificationToken: otp,
@@ -70,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       // Clean up pending user
-      await prisma.pendingUser.delete({ where: { id: pendingUser.id } });
+      await (prisma as any).pendingUser.delete({ where: { id: pendingUser.id } });
       
       return NextResponse.json(
         { error: 'User already exists. Please login.' },
@@ -78,20 +53,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pendingRole = parsePendingUserRole(pendingUser.role);
-    if (!pendingRole) {
-      return NextResponse.json(
-        { error: 'Invalid pending user role. Please sign up again.' },
-        { status: 400 }
-      );
-    }
-
     // Create actual user in main users table
-    const user = await prisma.user.create({
+    const user = await (prisma as any).user.create({
       data: {
         email: pendingUser.email,
         passwordHash: pendingUser.passwordHash,
-        role: pendingRole,
+        role: pendingUser.role,
         provider: 'EMAIL',
         emailVerified: true, // Already verified by OTP
         verificationToken: null,
@@ -100,7 +67,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Delete pending user record (no longer needed)
-    await prisma.pendingUser.delete({
+    await (prisma as any).pendingUser.delete({
       where: { id: pendingUser.id },
     });
 
@@ -109,7 +76,6 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
-      tokenVersion: user.tokenVersion,
       id: undefined
     });
 
@@ -128,6 +94,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         role: user.role,
       },
+      token,
       // Redirect URL based on role
       redirectUrl: user.role === 'STUDENT' ? '/student/dashboard' : 
                    user.role === 'INTERVIEWER' ? '/interviewer/dashboard' : 

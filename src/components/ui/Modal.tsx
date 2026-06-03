@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Button } from './Button';
 
 interface ModalProps {
   isOpen: boolean;
@@ -40,14 +41,14 @@ export function Modal({
   if (!isOpen) return null;
 
   const sizeClasses = {
-    sm: 'sm:max-w-md',
-    md: 'sm:max-w-lg',
-    lg: 'sm:max-w-2xl',
-    xl: 'sm:max-w-4xl',
+    sm: 'max-w-md',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl',
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-2 safe-px safe-pb sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -57,21 +58,21 @@ export function Modal({
       {/* Modal */}
       <div
         ref={modalRef}
-        className={`relative bg-white rounded-2xl sm:rounded-2xl shadow-2xl ${sizeClasses[size]} w-full max-w-[calc(100vw-1rem)] max-h-[92dvh] sm:max-h-[90vh] overflow-hidden flex flex-col`}
+        className={`relative bg-white rounded-2xl shadow-2xl ${sizeClasses[size]} w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
-          <h2 className="text-lg sm:text-2xl font-display font-bold text-slate-900 break-words pr-3">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+          <h2 className="text-2xl font-display font-bold text-slate-900">
             {title}
           </h2>
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="tap-target inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="text-slate-400 hover:text-slate-600 transition-colors"
               aria-label="Close modal"
             >
               <svg
-                className="w-5 h-5"
+                className="w-6 h-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -88,7 +89,7 @@ export function Modal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {children}
         </div>
       </div>
@@ -102,7 +103,7 @@ interface ModalFooterProps {
 
 export function ModalFooter({ children }: ModalFooterProps) {
   return (
-    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 p-4 sm:p-6 border-t border-slate-200 bg-slate-50 safe-pb">
+    <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">
       {children}
     </div>
   );

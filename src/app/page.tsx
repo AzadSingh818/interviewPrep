@@ -83,7 +83,7 @@ export default function HomePage() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(v => !v)}
-            className="md:hidden w-11 h-11 flex items-center justify-center rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-all touch-manipulation"
+            className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-all"
           >
             {mobileMenuOpen ? (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

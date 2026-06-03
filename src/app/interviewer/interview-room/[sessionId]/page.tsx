@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 interface ChatMessage {
@@ -16,21 +16,6 @@ interface BehaviorReport {
   flag: "green" | "yellow" | "red";
   summary: string;
   issues: string[];
-}
-
-function attachVideoStream(ref: RefObject<HTMLVideoElement>, stream: MediaStream | null): boolean {
-  const video = ref.current;
-  if (!video || !stream) return false;
-
-  try {
-    if (video.srcObject !== stream) {
-      video.srcObject = stream;
-    }
-    return true;
-  } catch (error) {
-    console.error("Failed to attach video stream:", error);
-    return false;
-  }
 }
 
 export default function InterviewerInterviewRoom() {
@@ -288,7 +273,7 @@ export default function InterviewerInterviewRoom() {
         audio: true,
       });
       localStreamRef.current = stream;
-      attachVideoStream(localVideoRef, stream);
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     } catch {
       addSystemMessage(
@@ -299,7 +284,8 @@ export default function InterviewerInterviewRoom() {
     // When student's tracks arrive
     pc.ontrack = (event) => {
       console.log("Interviewer: received remote track", event.streams.length);
-      if (attachVideoStream(remoteVideoRef, event.streams[0] || null)) {
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
         setRemoteStream(true);
         setConnectionStatus("connected");
         addSystemMessage("Student video/audio connected!");
@@ -464,12 +450,8 @@ export default function InterviewerInterviewRoom() {
       const data = await res.json();
       if (data.score !== undefined) {
         setBehaviorReport(data);
-        if (manual) {
-          setIsNotesOpen(false);
-          setIsBehaviorOpen(true);
-        }
+        if (manual) setIsBehaviorOpen(true);
         if (data.flag === "red" && !manual) {
-          setIsNotesOpen(false);
           setIsBehaviorOpen(true);
           addSystemMessage("⚠️ Admin alert: Behavior concern detected.");
         }
@@ -517,26 +499,26 @@ export default function InterviewerInterviewRoom() {
 
   return (
     <div
-      className="relative flex h-[100dvh] min-h-screen bg-gray-950 text-white overflow-hidden"
+      className="flex h-screen bg-gray-950 text-white overflow-hidden"
       style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
     >
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-6 py-3 bg-gray-900 border-b border-gray-800 safe-px">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        <div className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center">
                 <CamOnIcon />
               </div>
               <span className="font-semibold text-sm">InterviewPrepLive</span>
             </div>
-            <div className="hidden sm:block h-5 w-px bg-gray-700" />
-            <span className="hidden sm:block text-xs text-gray-400 font-mono">Session #{sessionId}</span>
-            <div className="bg-amber-500/20 border border-amber-500/40 rounded-full px-2 py-0.5 shrink-0">
+            <div className="h-5 w-px bg-gray-700" />
+            <span className="text-xs text-gray-400 font-mono">Session #{sessionId}</span>
+            <div className="bg-amber-500/20 border border-amber-500/40 rounded-full px-2.5 py-0.5">
               <span className="text-xs text-amber-400 font-medium">Interviewer View</span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-gray-800 rounded-full px-3 py-1.5">
               <span className={`w-2 h-2 rounded-full ${statusColors[connectionStatus]} ${connectionStatus === "connected" ? "animate-pulse" : ""}`} />
               <span className="text-xs font-medium text-gray-300">{statusLabels[connectionStatus]}</span>
@@ -551,13 +533,7 @@ export default function InterviewerInterviewRoom() {
             )}
             {behaviorReport && (
               <button
-                onClick={() =>
-                  setIsBehaviorOpen((open) => {
-                    const next = !open;
-                    if (next) setIsNotesOpen(false);
-                    return next;
-                  })
-                }
+                onClick={() => setIsBehaviorOpen((o) => !o)}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all ${flagBg[behaviorReport.flag]} ${flagColor[behaviorReport.flag]}`}
               >
                 <span>{flagEmoji[behaviorReport.flag]}</span>
@@ -565,13 +541,7 @@ export default function InterviewerInterviewRoom() {
               </button>
             )}
             <button
-              onClick={() =>
-                setIsNotesOpen((open) => {
-                  const next = !open;
-                  if (next) setIsBehaviorOpen(false);
-                  return next;
-                })
-              }
+              onClick={() => setIsNotesOpen((o) => !o)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${isNotesOpen ? "bg-amber-500/20 border border-amber-500/40 text-amber-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             >
               <NoteIcon />
@@ -581,7 +551,7 @@ export default function InterviewerInterviewRoom() {
         </div>
 
         {/* Video area */}
-        <div className="flex-1 relative bg-gray-950 p-2 sm:p-4">
+        <div className="flex-1 relative bg-gray-950 p-4">
           <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
             {remoteStream ? (
               <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
@@ -615,7 +585,7 @@ export default function InterviewerInterviewRoom() {
           </div>
 
           {/* PiP */}
-          <div className="absolute bottom-3 right-3 sm:bottom-8 sm:right-8 w-32 h-24 sm:w-48 sm:h-36 rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl bg-gray-800">
+          <div className="absolute bottom-8 right-8 w-48 h-36 rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl bg-gray-800">
             <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             {!isCameraOn && (
               <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
@@ -631,7 +601,7 @@ export default function InterviewerInterviewRoom() {
 
           {/* AI Notes Panel */}
           {isNotesOpen && (
-            <div className="absolute inset-x-3 top-3 bottom-3 sm:inset-auto sm:top-6 sm:left-6 sm:w-80 bg-gray-900/97 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-2xl flex flex-col sm:max-h-[calc(100%-48px)]">
+            <div className="absolute top-6 left-6 w-80 bg-gray-900/97 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100%-48px)]">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <NoteIcon className="w-4 h-4 text-amber-400" />
@@ -681,7 +651,7 @@ export default function InterviewerInterviewRoom() {
 
           {/* Behavior Monitor Panel */}
           {isBehaviorOpen && (
-            <div className="absolute inset-x-3 top-3 sm:inset-auto sm:top-6 sm:right-6 sm:w-72 bg-gray-900/97 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-2xl">
+            <div className="absolute top-6 right-6 w-72 bg-gray-900/97 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-2xl">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
                 <div className="flex items-center gap-2">
                   <ShieldIcon className="w-4 h-4 text-blue-400" />
@@ -728,42 +698,33 @@ export default function InterviewerInterviewRoom() {
         </div>
 
         {/* Controls */}
-        <div className="bg-gray-900 border-t border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex flex-wrap items-center justify-center gap-2 sm:gap-4 safe-px safe-pb">
+        <div className="bg-gray-900 border-t border-gray-800 px-6 py-4 flex items-center justify-center gap-4">
           <ControlBtn on={isMicOn} onClick={toggleMic} onIcon={<MicOnIcon />} offIcon={<MicOffIcon />} title={isMicOn ? "Mute" : "Unmute"} />
           <ControlBtn on={isCameraOn} onClick={toggleCamera} onIcon={<CamOnIcon />} offIcon={<CamOffIcon />} title={isCameraOn ? "Turn off camera" : "Turn on camera"} />
-          <button onClick={() => setIsChatOpen((o) => !o)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isChatOpen ? "bg-amber-600" : "bg-gray-700 hover:bg-gray-600"}`} title="Toggle chat"><ChatIcon /></button>
+          <button onClick={() => setIsChatOpen((o) => !o)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isChatOpen ? "bg-amber-600" : "bg-gray-700 hover:bg-gray-600"}`} title="Toggle chat"><ChatIcon /></button>
           <button
-            onClick={() => {
-              setIsBehaviorOpen((open) => {
-                const next = !open;
-                if (next) setIsNotesOpen(false);
-                return next;
-              });
-              if (!behaviorReport) runBehaviorAnalysis(true);
-            }}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isBehaviorOpen ? "bg-blue-600" : behaviorReport?.flag === "red" ? "bg-red-500/20 border border-red-500 text-red-400" : behaviorReport?.flag === "yellow" ? "bg-yellow-500/20 border border-yellow-500 text-yellow-400" : "bg-gray-700 hover:bg-gray-600"}`}
+            onClick={() => { setIsBehaviorOpen((o) => !o); if (!behaviorReport) runBehaviorAnalysis(true); }}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${isBehaviorOpen ? "bg-blue-600" : behaviorReport?.flag === "red" ? "bg-red-500/20 border border-red-500 text-red-400" : behaviorReport?.flag === "yellow" ? "bg-yellow-500/20 border border-yellow-500 text-yellow-400" : "bg-gray-700 hover:bg-gray-600"}`}
             title="Conduct Monitor"
           ><ShieldIcon /></button>
-          <button onClick={endCall} className="flex items-center gap-2 h-12 rounded-full bg-red-600 hover:bg-red-700 px-5 sm:px-6 font-medium text-sm transition-all ml-1 sm:ml-4" title="End session">
+          <button onClick={endCall} className="flex items-center gap-2 h-12 rounded-full bg-red-600 hover:bg-red-700 px-6 font-medium text-sm transition-all hover:scale-105 ml-4" title="End session">
             <EndCallIcon />End Session
           </button>
         </div>
       </div>
 
       {isChatOpen && (
-        <div className="fixed inset-x-2 bottom-2 z-40 h-[56dvh] max-h-[calc(100dvh-10rem)] sm:max-h-[30rem] md:static md:inset-auto md:h-auto md:max-h-none md:w-80">
-          <ChatPanel
-            messages={chatMessages}
-            input={chatInput}
-            onInput={setChatInput}
-            onSend={sendMessage}
-            onClose={() => setIsChatOpen(false)}
-            senderRole="interviewer"
-            bottomRef={chatBottomRef}
-            accentClass="bg-amber-600"
-            inputFocusClass="focus:border-amber-500"
-          />
-        </div>
+        <ChatPanel
+          messages={chatMessages}
+          input={chatInput}
+          onInput={setChatInput}
+          onSend={sendMessage}
+          onClose={() => setIsChatOpen(false)}
+          senderRole="interviewer"
+          bottomRef={chatBottomRef}
+          accentClass="bg-amber-600"
+          inputFocusClass="focus:border-amber-500"
+        />
       )}
     </div>
   );
@@ -777,7 +738,7 @@ function ControlBtn({ on, onClick, onIcon, offIcon, title }: {
 }) {
   return (
     <button onClick={onClick} title={title}
-      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${on ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-red-500/20 border border-red-500 text-red-400"}`}>
+      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 ${on ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-red-500/20 border border-red-500 text-red-400"}`}>
       {on ? onIcon : offIcon}
     </button>
   );
@@ -792,7 +753,7 @@ interface ChatPanelProps {
 }
 function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bottomRef, accentClass, inputFocusClass }: ChatPanelProps) {
   return (
-    <div className="h-full w-full md:w-80 flex flex-col bg-gray-900 border border-gray-800 md:border-l md:border-gray-800 rounded-2xl md:rounded-none overflow-hidden">
+    <div className="w-80 flex flex-col bg-gray-900 border-l border-gray-800">
       <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ChatIcon className="w-4 h-4 text-amber-400" />
@@ -822,7 +783,7 @@ function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bott
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="p-4 border-t border-gray-800 safe-pb">
+      <div className="p-4 border-t border-gray-800">
         <div className="flex gap-2">
           <input type="text" value={input} onChange={(e) => onInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSend()}
@@ -830,7 +791,7 @@ function ChatPanel({ messages, input, onInput, onSend, onClose, senderRole, bott
             className={`flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none transition-colors ${inputFocusClass}`}
           />
           <button onClick={onSend} disabled={!input.trim()}
-            className={`w-11 h-11 rounded-xl ${accentClass} hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all`}>
+            className={`w-9 h-9 rounded-xl ${accentClass} hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105`}>
             <SendIcon />
           </button>
         </div>

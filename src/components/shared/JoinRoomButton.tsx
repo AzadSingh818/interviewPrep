@@ -60,10 +60,10 @@ export default function JoinRoomButton({
       disabled={!roomOpen}
       title={!roomOpen ? 'Room opens 30 minutes before session' : 'Join live interview room'}
       className={`
-        inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all touch-manipulation
+        inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all
         ${
           roomOpen
-            ? 'bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white shadow-md shadow-violet-200'
+            ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-200 hover:scale-105 active:scale-95'
             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
         }
         ${className ?? ''}

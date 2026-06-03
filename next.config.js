@@ -22,34 +22,7 @@ const nextConfig = {
     ],
   },
   async headers() {
-    const securityHeaders = [
-      {
-        key: 'Content-Security-Policy',
-        value: [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
-          "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: blob: https://lh3.googleusercontent.com https://res.cloudinary.com",
-          "font-src 'self' data:",
-          "connect-src 'self' https://api.groq.com https://checkout.razorpay.com https://api.razorpay.com",
-          "frame-src https://checkout.razorpay.com https://api.razorpay.com",
-          "media-src 'self' blob:",
-          "object-src 'none'",
-          "base-uri 'self'",
-          "form-action 'self'",
-          "frame-ancestors 'none'",
-        ].join('; '),
-      },
-      { key: 'X-Content-Type-Options', value: 'nosniff' },
-      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-      { key: 'X-Frame-Options', value: 'DENY' },
-    ];
-
     return [
-      {
-        source: '/:path*',
-        headers: securityHeaders,
-      },
       {
         source: '/(student|interviewer)/interview-room/:path*',
         headers: [

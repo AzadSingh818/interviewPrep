@@ -1,28 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, generateToken, setAuthCookie } from '@/lib/auth';
-import {
-  checkRateLimit,
-  getClientIp,
-  normalizeRateLimitEmail,
-  rateLimitResponse,
-} from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = body;
-    const normalizedEmail = normalizeRateLimitEmail(email);
-    const clientIp = getClientIp(request);
-
-    const limit = await checkRateLimit({
-      key: `auth:login:${normalizedEmail}:${clientIp}`,
-      limit: 5,
-      windowMs: 15 * 60 * 1000,
-    });
-    if (!limit.allowed) {
-      return rateLimitResponse(limit.retryAfter);
-    }
 
     if (!email || !password) {
       return NextResponse.json(
@@ -39,7 +22,6 @@ export async function POST(request: NextRequest) {
         email: true,
         passwordHash: true,
         role: true,
-        tokenVersion: true,
         provider: true,
         emailVerified: true,
         studentProfile: true,
@@ -98,7 +80,6 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
-      tokenVersion: user.tokenVersion,
       id: undefined
     });
 
@@ -112,6 +93,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
         hasProfile: user.role === 'STUDENT' ? !!user.studentProfile : !!user.interviewerProfile,
       },
+      token,
     });
   } catch (error) {
     console.error('Login error:', error);

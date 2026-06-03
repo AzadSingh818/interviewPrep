@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PRO_PLAN_DESCRIPTION, PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
 
 declare global {
   interface Window {
@@ -66,7 +65,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'InterviewPrepLive',
-        description: PRO_PLAN_DESCRIPTION,
+        description: 'Pro Plan — ₹99/month (10 Interviews + 10 Guidance)',
         order_id: orderData.orderId,
         prefill: { name: userName, email: userEmail },
         theme: { color: '#6366f1' },
@@ -115,14 +114,14 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
   const sessionLabel = sessionType === 'interview' ? 'Mock Interviews' : 'Guidance Sessions';
 
   return (
-    <div className="max-w-lg mx-auto px-1 sm:px-0">
+    <div className="max-w-lg mx-auto">
       {/* Limit reached banner */}
-      <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-6 mb-5 sm:mb-6 text-center">
-        <div className="text-4xl sm:text-5xl mb-3">🔒</div>
-        <h2 className="text-lg sm:text-xl font-bold text-amber-900 mb-2">
+      <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 mb-6 text-center">
+        <div className="text-5xl mb-3">🔒</div>
+        <h2 className="text-xl font-bold text-amber-900 mb-2">
           {isFreePlan ? 'Free Trial Limit Reached' : 'Monthly Limit Reached'}
         </h2>
-        <p className="text-amber-800 text-sm leading-relaxed">
+        <p className="text-amber-800 text-sm">
           You've used <strong>{used}/{limit}</strong> {sessionLabel}.{' '}
           {isFreePlan
             ? 'Your free trial is complete.'
@@ -131,7 +130,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
       </div>
 
       {/* Usage progress */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 mb-5 sm:mb-6">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
         <div className="flex justify-between text-sm text-slate-600 mb-2">
           <span>{sessionLabel} used</span>
           <span className="font-semibold text-slate-900">{used} / {limit}</span>
@@ -145,16 +144,16 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
       </div>
 
       {/* Pro plan card */}
-      <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl p-4 sm:p-6 text-white mb-6 shadow-xl">
+      <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl p-6 text-white mb-6 shadow-xl">
         <div className="flex justify-between items-start mb-4">
           <div>
             <p className="text-indigo-200 text-sm font-medium uppercase tracking-wider">
               {isFreePlan ? 'Upgrade to' : 'Renew'}
             </p>
-            <h3 className="text-2xl sm:text-3xl font-bold">Pro Plan</h3>
+            <h3 className="text-3xl font-bold">Pro Plan</h3>
           </div>
           <div className="text-right">
-            <p className="text-3xl sm:text-4xl font-bold">{PRO_PLAN_PRICE_DISPLAY}</p>
+            <p className="text-4xl font-bold">₹99</p>
             <p className="text-indigo-200 text-sm">per month</p>
           </div>
         </div>
@@ -177,7 +176,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
         <button
           onClick={handlePayment}
           disabled={paying}
-          className="w-full min-h-11 bg-white text-indigo-700 font-bold py-3 px-6 rounded-xl hover:bg-indigo-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-base sm:text-lg shadow"
+          className="w-full bg-white text-indigo-700 font-bold py-3 px-6 rounded-xl hover:bg-indigo-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg shadow"
         >
           {paying ? (
             <span className="flex items-center justify-center gap-2">
@@ -188,7 +187,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
               Processing...
             </span>
           ) : (
-            `Pay ${PRO_PLAN_PRICE_DISPLAY} — ${isFreePlan ? 'Unlock Pro' : 'Renew Plan'}`
+            `Pay ₹99 — ${isFreePlan ? 'Unlock Pro' : 'Renew Plan'}`
           )}
         </button>
       </div>
@@ -259,7 +258,7 @@ export function UsageBanner({ planType, used, limit, sessionType, planExpiresAt 
       {isLow && remaining > 0 && (
         <p className="text-xs text-amber-700 mt-2">
           ⚠️ Only {remaining} {sessionLabel} left.{' '}
-          {planType === 'FREE' ? `Upgrade to Pro for ${PRO_PLAN_PRICE_DISPLAY}/month.` : 'Consider renewing soon.'}
+          {planType === 'FREE' ? 'Upgrade to Pro for ₹99/month.' : 'Consider renewing soon.'}
         </p>
       )}
       {planType === 'PRO' && expiryStr && (

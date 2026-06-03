@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
-import { env } from '@/lib/env';
 import Razorpay from 'razorpay';
 
 export const dynamic = 'force-dynamic';
@@ -13,8 +12,8 @@ export async function POST() {
     const { userId } = await requireAuth(['STUDENT']);
 
     const razorpay = new Razorpay({
-      key_id: env.RAZORPAY_KEY_ID,
-      key_secret: env.RAZORPAY_KEY_SECRET,
+      key_id: process.env.RAZORPAY_KEY_ID!,
+      key_secret: process.env.RAZORPAY_KEY_SECRET!,
     });
 
     const student = await prisma.studentProfile.findUnique({
@@ -45,13 +44,14 @@ export async function POST() {
       },
     });
 
-    await prisma.featureUnlock.create({
+    // Create a placeholder ManualBookingRequest to store payment reference
+    // (will be updated with actual booking details after unlock)
+    await prisma.manualBookingRequest.create({
       data: {
         studentId: student.id,
-        feature: 'PREFERRED_INTERVIEWER',
+        sessionType: 'INTERVIEW', // placeholder, updated on actual booking
+        status: 'PENDING',
         razorpayOrderId: order.id,
-        amount: UNLOCK_AMOUNT_PAISE,
-        currency: 'INR',
         paymentStatus: 'PENDING',
       },
     });
@@ -60,7 +60,7 @@ export async function POST() {
       orderId: order.id,
       amount: UNLOCK_AMOUNT_PAISE,
       currency: 'INR',
-      keyId: env.RAZORPAY_KEY_ID,
+      keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error: any) {
     console.error('Create unlock order error:', error);
