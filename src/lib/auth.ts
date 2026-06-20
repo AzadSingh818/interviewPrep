@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { cookies, headers } from 'next/headers';
 import { prisma } from './prisma';
@@ -66,6 +67,67 @@ export async function getAuthCookie(): Promise<string | undefined> {
 export async function removeAuthCookie() {
   const cookieStore = await cookies();
   cookieStore.delete('auth-token');
+  cookieStore.delete('csrf-token');
+}
+
+// ========================================
+// CSRF TOKEN FUNCTIONS
+// ========================================
+
+/**
+ * Generate a cryptographically random CSRF token.
+ */
+export function generateCsrfToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+/**
+ * Set the CSRF token as a readable (non-httpOnly) cookie so the
+ * frontend JS can read it and include it as a request header.
+ * SameSite=Strict prevents cross-site requests from carrying it.
+ */
+export async function setCsrfCookie(token: string) {
+  const cookieStore = await cookies();
+  cookieStore.set('csrf-token', token, {
+    httpOnly: false, // must be readable by JS
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 24 * 7, // same lifetime as auth cookie
+    path: '/',
+  });
+}
+
+/**
+ * Read the CSRF token from the cookie store.
+ */
+export async function getCsrfCookie(): Promise<string | undefined> {
+  const cookieStore = await cookies();
+  return cookieStore.get('csrf-token')?.value;
+}
+
+/**
+ * Verify the CSRF token: compare the X-CSRF-Token request header
+ * against the csrf-token cookie value using a timing-safe comparison.
+ * Throws if the token is missing or does not match.
+ */
+async function verifyCsrfToken(headerStore: Awaited<ReturnType<typeof headers>>) {
+  const cookieStore = await cookies();
+  const cookieToken = cookieStore.get('csrf-token')?.value;
+  const headerToken = headerStore.get('x-csrf-token');
+
+  if (!cookieToken || !headerToken) {
+    throw new Error('CSRF validation failed');
+  }
+
+  const cookieBuf = Buffer.from(cookieToken);
+  const headerBuf = Buffer.from(headerToken);
+
+  if (
+    cookieBuf.length !== headerBuf.length ||
+    !crypto.timingSafeEqual(cookieBuf, headerBuf)
+  ) {
+    throw new Error('CSRF validation failed');
+  }
 }
 
 async function enforceSameOriginRequest() {
@@ -109,8 +171,27 @@ async function enforceSameOriginRequest() {
 // Use this in all API routes
 // ========================================
 
+// Unsafe methods that require CSRF token verification
+const CSRF_REQUIRED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 export async function requireAuth(allowedRoles?: UserRole[]): Promise<JWTPayload> {
+  const headerStore = await headers();
   await enforceSameOriginRequest();
+
+  // CSRF token check for state-changing requests
+  const method = headerStore.get('x-http-method') ?? // allow override header
+    (typeof (globalThis as any).Request !== 'undefined' ? undefined : undefined);
+  // We use a dedicated header since Next.js Route Handlers don't expose method via headers().
+  // The method is forwarded by our convention via X-Request-Method, or we check unconditionally
+  // for mutation methods using the presence of the CSRF header itself.
+  //
+  // Strategy: if the request carries a 'x-csrf-expected: 1' header set by the
+  // frontend wrapper on all non-GET calls, we enforce the CSRF token.
+  // This keeps GET/HEAD/OPTIONS excluded without needing to read the method.
+  const expectsCsrf = headerStore.get('x-csrf-expected') === '1';
+  if (expectsCsrf) {
+    await verifyCsrfToken(headerStore);
+  }
 
   const token = await getAuthCookie();
   if (!token) throw new Error('Unauthorized');

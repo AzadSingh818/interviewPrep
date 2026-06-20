@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { readRequiredEnv } from '@/lib/env';
 import { processCapturedPayment, processFailedPayment } from '@/lib/payments';
+import { captureError, captureEvent } from '@/lib/monitoring';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (existing?.processedAt) {
+    captureEvent('webhook.duplicate', { route: '/api/webhooks/razorpay', eventType, orderId: orderId ?? undefined, paymentId: paymentId ?? undefined });
     return NextResponse.json({ success: true, duplicate: true });
   }
 
@@ -106,6 +108,7 @@ export async function POST(request: NextRequest) {
       await processFailedPayment(orderId);
     }
 
+    captureEvent('webhook.processed', { route: '/api/webhooks/razorpay', eventType, orderId: orderId ?? undefined, paymentId: paymentId ?? undefined });
     await prisma.paymentWebhookEvent.update({
       where: { eventId },
       data: {
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
       data: { processingError: error.message || 'Webhook processing failed' },
     });
 
-    console.error('Razorpay webhook processing error:', error);
+    captureError(error, { route: '/api/webhooks/razorpay', eventType, orderId: orderId ?? undefined, paymentId: paymentId ?? undefined });
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

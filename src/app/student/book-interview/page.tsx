@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { apiFetch } from '@/lib/api-client';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
@@ -115,12 +116,12 @@ function UnlockModal({
       const loaded = await loadRazorpay();
       if (!loaded) { setErr('Failed to load payment gateway.'); setUnlocking(false); return; }
 
-      const orderRes = await fetch('/api/payment/create-unlock-order', { method: 'POST' });
+      const orderRes = await apiFetch('/api/payment/create-unlock-order', { method: 'POST' });
       const orderData = await orderRes.json();
       if (!orderRes.ok) { setErr(orderData.error || 'Failed to create order.'); setUnlocking(false); return; }
       if (orderData.alreadyUnlocked) { onUnlocked(); return; }
 
-      const profileRes = await fetch('/api/student/profile');
+      const profileRes = await apiFetch('/api/student/profile');
       const profileData = await profileRes.json();
       const userEmail = profileData.user?.email ?? '';
       const userName  = profileData.profile?.name ?? profileData.user?.name ?? '';
@@ -137,7 +138,7 @@ function UnlockModal({
         modal: { ondismiss: () => setUnlocking(false) },
         handler: async (response: any) => {
           try {
-            const verifyRes = await fetch('/api/payment/unlock-preferred-interviewer', {
+            const verifyRes = await apiFetch('/api/payment/unlock-preferred-interviewer', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -530,7 +531,7 @@ export default function BookInterviewPage() {
 
   const fetchPlan = async () => {
     try {
-      const res = await fetch('/api/student/profile');
+      const res = await apiFetch('/api/student/profile');
       if (res.ok) {
         const data = await res.json();
         if (data.profile) {
@@ -551,7 +552,7 @@ export default function BookInterviewPage() {
 
   const fetchInterviewers = async () => {
     try {
-      const res = await fetch('/api/student/interviewers');
+      const res = await apiFetch('/api/student/interviewers');
       if (res.ok) {
         const data = await res.json();
         setInterviewers(data.interviewers || []);
@@ -584,7 +585,7 @@ export default function BookInterviewPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/student/book/interview', {
+      const res = await apiFetch('/api/student/book/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -628,7 +629,7 @@ export default function BookInterviewPage() {
     setManualError('');
     setSubmitting(true);
     try {
-      const res = await fetch('/api/student/book/manual-request', {
+      const res = await apiFetch('/api/student/book/manual-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

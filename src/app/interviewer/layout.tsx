@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { validatePasswordPolicy } from '@/lib/password-policy';
+import { apiFetch } from '@/lib/api-client';
 
 // ─── Dark Mode Hook ───────────────────────────────────────────────────────────
 function useDarkMode() {
@@ -101,7 +102,7 @@ function SettingsModal({
     if (!passwordPolicy.valid)          { setPwStatus({ type: 'error', msg: passwordPolicy.error || 'Password does not meet requirements' }); return; }
     setPwLoading(true);
     try {
-      const res = await fetch('/api/interviewer/change-password', {
+      const res = await apiFetch('/api/interviewer/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
@@ -126,7 +127,7 @@ function SettingsModal({
     setProfileStatus(null);
     setProfileLoading(true);
     try {
-      const res = await fetch('/api/interviewer/profile', {
+      const res = await apiFetch('/api/interviewer/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -425,7 +426,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
 
   const fetchUser = async () => {
     try {
-      const res = await fetch('/api/interviewer/profile');
+      const res = await apiFetch('/api/interviewer/profile');
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -436,7 +437,7 @@ export default function InterviewerLayout({ children }: { children: React.ReactN
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
       router.push('/login/interviewer');
     } catch (err) { console.error('Logout failed:', err); }
   };

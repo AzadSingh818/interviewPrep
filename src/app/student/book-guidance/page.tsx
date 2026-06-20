@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { apiFetch } from '@/lib/api-client';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
@@ -421,8 +422,8 @@ export default function BookGuidancePage() {
   const fetchAll = async () => {
     try {
       const [interviewersRes, profileRes] = await Promise.all([
-        fetch('/api/interviewer/list'),
-        fetch('/api/student/profile'),
+        apiFetch('/api/interviewer/list'),
+        apiFetch('/api/student/profile'),
       ]);
       if (interviewersRes.ok) {
         const data = await interviewersRes.json();
@@ -465,7 +466,7 @@ export default function BookGuidancePage() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/student/book/guidance', {
+      const res = await apiFetch('/api/student/book/guidance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

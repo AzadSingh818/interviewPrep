@@ -4,11 +4,11 @@ import { hashPassword } from '@/lib/auth';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
 import { validatePasswordPolicy } from '@/lib/password-policy';
 import {
-  checkRateLimit,
   getClientIp,
   normalizeRateLimitEmail,
   rateLimitResponse,
 } from '@/lib/rate-limit';
+import { checkRateLimitWithFallback } from '@/lib/rate-limit-redis';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,10 +17,14 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = normalizeRateLimitEmail(email);
     const clientIp = getClientIp(request);
 
-    const limit = await checkRateLimit({
-      key: `auth:signup:${normalizedEmail}:${clientIp}`,
-      limit: 5,
-      windowMs: 60 * 60 * 1000,
+    const limit = await checkRateLimitWithFallback({
+      redisPrefix: 'signup',
+      redisLimit: 5,
+      redisWindow: '1 h',
+      identifier: `${normalizedEmail}:${clientIp}`,
+      pgKey: `auth:signup:${normalizedEmail}:${clientIp}`,
+      pgLimit: 5,
+      pgWindowMs: 60 * 60 * 1000,
     });
     if (!limit.allowed) {
       return rateLimitResponse(limit.retryAfter);

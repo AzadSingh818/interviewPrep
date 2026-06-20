@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PRO_PLAN_DESCRIPTION, PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
+import { apiFetch } from '@/lib/api-client';
 
 declare global {
   interface Window {
@@ -46,7 +47,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
       }
 
       // 2. Create order on backend
-      const orderRes = await fetch('/api/payment/create-order', { method: 'POST' });
+      const orderRes = await apiFetch('/api/payment/create-order', { method: 'POST' });
       const orderData = await orderRes.json();
 
       if (!orderRes.ok) {
@@ -55,7 +56,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
       }
 
       // 3. Fetch user details for prefill
-      const profileRes = await fetch('/api/student/profile');
+      const profileRes = await apiFetch('/api/student/profile');
       const profileData = await profileRes.json();
       const userEmail = profileData.user?.email ?? '';
       const userName = profileData.profile?.name ?? profileData.user?.name ?? '';
@@ -78,7 +79,7 @@ export function PaymentGate({ planType, used, limit, sessionType, onPaymentSucce
         handler: async (response: any) => {
           // 5. Verify payment on backend
           try {
-            const verifyRes = await fetch('/api/payment/verify', {
+            const verifyRes = await apiFetch('/api/payment/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

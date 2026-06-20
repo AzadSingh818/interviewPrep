@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { apiFetch } from '@/lib/api-client';
 export const dynamic = 'force-dynamic';
 
 
@@ -83,7 +84,7 @@ export default function VerifyEmailPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/verify-email', {
+      const res = await apiFetch('/api/auth/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp: otpString }),
@@ -123,7 +124,7 @@ export default function VerifyEmailPage() {
     setResendLoading(true);
 
     try {
-      const res = await fetch('/api/auth/resend-otp', {
+      const res = await apiFetch('/api/auth/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { sendReminderToStudent, sendReminderToInterviewer } from '@/lib/email';
+import { captureError } from '@/lib/monitoring';
 
 export async function processDueSessionReminders(now = new Date()) {
   const windowStart = new Date(now.getTime() + 29 * 60_000);
@@ -83,6 +84,7 @@ export async function processDueSessionReminders(now = new Date()) {
         data: { reminderSent: false },
       });
       console.error(`Reminder failed for session ${session.id}:`, error);
+      captureError(error, { route: 'scheduler.processDueSessionReminders', sessionId: session.id });
     }
   }
 

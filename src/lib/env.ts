@@ -59,3 +59,33 @@ export const env = validateRequiredServerEnv();
 export function getOptionalEnv(name: OptionalServerEnv, fallback?: string): string | undefined {
   return readEnv(name) ?? fallback;
 }
+
+// ========================================
+// PRODUCTION-ONLY SECRETS VALIDATION
+// ========================================
+// CRON_SECRET and RAZORPAY_WEBHOOK_SECRET are optional in dev/test
+// so local builds keep working, but they MUST be set in production.
+// This function is called below at module init time so the process fails
+// fast on the first request rather than silently breaking at call site.
+
+const PRODUCTION_REQUIRED_SECRETS = [
+  'CRON_SECRET',
+  'RAZORPAY_WEBHOOK_SECRET',
+] as const;
+
+function validateProductionSecrets(): void {
+  if (process.env.NODE_ENV !== 'production') return;
+  if (process.env.NEXT_PHASE === 'phase-production-build') return;
+
+  const missing = PRODUCTION_REQUIRED_SECRETS.filter((name) => !readEnv(name));
+  if (missing.length > 0) {
+    throw new Error(
+      `[env] Missing required production secrets: ${missing.join(', ')}. ` +
+        'Set these in your Vercel/deployment environment variables.',
+    );
+  }
+}
+
+// Validate at startup (module load time) — fails fast in production
+validateProductionSecrets();
+

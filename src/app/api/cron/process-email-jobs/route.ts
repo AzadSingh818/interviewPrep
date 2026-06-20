@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processDueSessionReminders } from '@/lib/scheduler';
+import { processPendingEmailJobs } from '@/lib/email-queue';
 import { readRequiredEnv } from '@/lib/env';
 import { captureError } from '@/lib/monitoring';
 
@@ -14,11 +14,12 @@ async function handleRequest(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const result = await processDueSessionReminders();
+    const result = await processPendingEmailJobs();
+
     return NextResponse.json({ success: true, ...result });
-  } catch (error) {
-    captureError(error, { route: '/api/cron/session-reminders' });
-    return NextResponse.json({ error: 'Session reminder processing failed' }, { status: 500 });
+  } catch (error: any) {
+    captureError(error, { route: '/api/cron/process-email-jobs' });
+    return NextResponse.json({ error: 'Email job processing failed' }, { status: 500 });
   }
 }
 

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyPassword, generateToken, setAuthCookie } from '@/lib/auth';
+import { verifyPassword, generateToken, setAuthCookie, generateCsrfToken, setCsrfCookie } from '@/lib/auth';
 import {
-  checkRateLimit,
   getClientIp,
   normalizeRateLimitEmail,
   rateLimitResponse,
 } from '@/lib/rate-limit';
+import { checkRateLimitWithFallback } from '@/lib/rate-limit-redis';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,10 +15,15 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = normalizeRateLimitEmail(email);
     const clientIp = getClientIp(request);
 
-    const limit = await checkRateLimit({
-      key: `auth:login:${normalizedEmail}:${clientIp}`,
-      limit: 5,
-      windowMs: 15 * 60 * 1000,
+    // Rate limiting: try Redis (sliding window) first, fall back to Postgres
+    const limit = await checkRateLimitWithFallback({
+      redisPrefix: 'login',
+      redisLimit: 5,
+      redisWindow: '15 m',
+      identifier: `${normalizedEmail}:${clientIp}`,
+      pgKey: `auth:login:${normalizedEmail}:${clientIp}`,
+      pgLimit: 5,
+      pgWindowMs: 15 * 60 * 1000,
     });
     if (!limit.allowed) {
       return rateLimitResponse(limit.retryAfter);
@@ -102,8 +107,12 @@ export async function POST(request: NextRequest) {
       id: undefined
     });
 
-    // Set cookie
+    // Set auth cookie
     await setAuthCookie(token);
+
+    // Set CSRF token cookie (readable by JS, used for double-submit CSRF protection)
+    const csrfToken = generateCsrfToken();
+    await setCsrfCookie(csrfToken);
 
     return NextResponse.json({
       user: {

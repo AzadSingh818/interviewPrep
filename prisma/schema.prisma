@@ -134,6 +134,7 @@ model Session {
   reminderSent            Boolean                  @default(false) @map("reminder_sent")
   feedback                Feedback?
   manualBookingRequest    ManualBookingRequest?
+  aiReport                AIReport?
   interviewer             InterviewerProfile       @relation(fields: [interviewerId], references: [id], onDelete: Cascade)
   student                 StudentProfile           @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -345,4 +346,46 @@ enum ManualBookingStatus {
 
 enum FeatureUnlockType {
   PREFERRED_INTERVIEWER
+}
+
+model EmailJob {
+  id          Int            @id @default(autoincrement())
+  to          String         @db.VarChar(255)
+  subject     String         @db.VarChar(500)
+  html        String         @db.Text
+  text        String?        @db.Text
+  fromName    String?        @map("from_name") @db.VarChar(255)
+  status      EmailJobStatus @default(PENDING)
+  retryCount  Int            @default(0) @map("retry_count")
+  maxRetries  Int            @default(3) @map("max_retries")
+  nextRetryAt DateTime?      @map("next_retry_at")
+  lastError   String?        @map("last_error") @db.Text
+  processedAt DateTime?      @map("processed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@index([status, nextRetryAt], map: "idx_email_jobs_status_retry")
+  @@map("email_jobs")
+}
+
+enum EmailJobStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model AIReport {
+  id                    Int      @id @default(autoincrement())
+  sessionId             Int      @unique @map("session_id")
+  interviewerReport     String?  @map("interviewer_report") @db.Text
+  studentReport         String?  @map("student_report") @db.Text
+  interviewerScore      Int?     @map("interviewer_score")
+  interviewerFlag       String?  @map("interviewer_flag")
+  transcript            String?  @map("transcript") @db.Text
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  session               Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("ai_reports")
 }

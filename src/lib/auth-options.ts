@@ -5,6 +5,7 @@ import { prisma } from './prisma';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { env } from './env';
+import { generateCsrfToken } from './auth';
 
 interface JWTPayload {
   userId: number;
@@ -127,6 +128,16 @@ export function buildAuthOptions(): AuthOptions {
             httpOnly: true,
             secure:   process.env.NODE_ENV === 'production',
             sameSite: 'lax',
+            maxAge:   60 * 60 * 24 * 7,
+            path:     '/',
+          });
+
+          // Set CSRF token for double-submit cookie protection
+          const csrfToken = generateCsrfToken();
+          cookieStore.set('csrf-token', csrfToken, {
+            httpOnly: false, // must be readable by JS
+            secure:   process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
             maxAge:   60 * 60 * 24 * 7,
             path:     '/',
           });

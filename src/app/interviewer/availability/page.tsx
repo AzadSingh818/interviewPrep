@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Modal, ModalFooter } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateTime } from '@/lib/utils';
+import { apiFetch } from '@/lib/api-client';
 
 export default function InterviewerAvailabilityPage() {
   const { toast } = useToast();
@@ -23,7 +24,7 @@ export default function InterviewerAvailabilityPage() {
 
   const fetchSlots = async () => {
     try {
-      const res = await fetch('/api/interviewer/availability');
+      const res = await apiFetch('/api/interviewer/availability');
       if (res.ok) {
         const data = await res.json();
         setSlots(data.slots || []);
@@ -48,7 +49,7 @@ export default function InterviewerAvailabilityPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/interviewer/availability', {
+      const res = await apiFetch('/api/interviewer/availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ startTime: start.toISOString(), endTime: end.toISOString() }),
@@ -69,7 +70,7 @@ export default function InterviewerAvailabilityPage() {
   const handleDeleteSlot = async (slotId: number) => {
     setDeletingSlot(true);
     try {
-      const res = await fetch('/api/interviewer/availability', {
+      const res = await apiFetch('/api/interviewer/availability', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slotId }),

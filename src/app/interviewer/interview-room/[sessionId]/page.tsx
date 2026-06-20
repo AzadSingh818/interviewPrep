@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
 
 interface ChatMessage {
   id: string;
@@ -51,6 +52,111 @@ export default function InterviewerInterviewRoom() {
   const isInitialized = useRef(false);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const lastOfferStr = useRef<string>("");
+  const lkRoomRef = useRef<any>(null);
+
+  // AI Background Audio Monitor Refs & State
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const localAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+  const remoteAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const mixedStreamRef = useRef<MediaStream | null>(null);
+  const destinationNodeRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const connectedTrackIdsRef = useRef<Set<string>>(new Set());
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const initializeRecorder = useCallback(() => {
+    if (mediaRecorderRef.current) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+      audioContextRef.current = audioCtx;
+      
+      const dest = audioCtx.createMediaStreamDestination();
+      destinationNodeRef.current = dest;
+      mixedStreamRef.current = dest.stream;
+      audioChunksRef.current = [];
+      
+      let options = { mimeType: 'audio/webm' };
+      if (!MediaRecorder.isTypeSupported('audio/webm')) {
+        options = { mimeType: 'audio/ogg' };
+      }
+      
+      let recorder: MediaRecorder;
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        recorder = new MediaRecorder(dest.stream);
+      } else {
+        recorder = new MediaRecorder(dest.stream, options);
+      }
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      recorder.start(1000);
+      mediaRecorderRef.current = recorder;
+      console.log("🎙️ Background MediaRecorder initialized and started recording.");
+    } catch (err) {
+      console.error("Failed to initialize background recorder:", err);
+    }
+  }, []);
+
+  const connectTrackToRecorder = useCallback((track: MediaStreamTrack, label: string) => {
+    if (!track) return;
+    if (connectedTrackIdsRef.current.has(track.id)) {
+      console.log(`🎙️ Track ${label} (${track.id}) already connected to recorder. Skipping.`);
+      return;
+    }
+    
+    console.log(`🎙️ Connecting ${label} audio track (${track.id}) to mixed recording context.`);
+    try {
+      initializeRecorder();
+      
+      const audioCtx = audioContextRef.current;
+      const dest = destinationNodeRef.current;
+      if (!audioCtx || !dest) {
+        console.warn("AudioContext or destination node not ready.");
+        return;
+      }
+      
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      
+      const stream = new MediaStream([track]);
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(dest);
+      connectedTrackIdsRef.current.add(track.id);
+    } catch (err) {
+      console.error(`Failed to connect ${label} audio track to recorder:`, err);
+    }
+  }, [initializeRecorder]);
+
+  const stopRecordingAndGetBlob = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+        resolve(null);
+        return;
+      }
+      
+      mediaRecorderRef.current.onstop = () => {
+        console.log("MediaRecorder stopped in endCall. Chunks count:", audioChunksRef.current.length);
+        if (audioChunksRef.current.length === 0) {
+          resolve(null);
+          return;
+        }
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mediaRecorderRef.current?.mimeType || 'audio/webm'
+        });
+        resolve(audioBlob);
+      };
+      
+      mediaRecorderRef.current.stop();
+    });
+  }, []);
 
   const [userName, setUserName] = useState("Interviewer");
   const [sessionInfo, setSessionInfo] = useState<any>(null);
@@ -79,7 +185,7 @@ export default function InterviewerInterviewRoom() {
   const [lastAnalyzedCount, setLastAnalyzedCount] = useState(0);
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    apiFetch("/api/auth/me")
       .then((r) => r.json())
       .then((data) => {
         const name =
@@ -91,7 +197,7 @@ export default function InterviewerInterviewRoom() {
       })
       .catch(() => {});
 
-    fetch("/api/interviewer/sessions")
+    apiFetch("/api/interviewer/sessions")
       .then((r) => r.json())
       .then((data) => {
         const found = data.sessions?.find(
@@ -165,7 +271,7 @@ export default function InterviewerInterviewRoom() {
 
   const pollRoom = useCallback(async () => {
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/interview-room?sessionId=${sessionId}&role=interviewer`,
       );
       if (!res.ok) return;
@@ -220,7 +326,7 @@ export default function InterviewerInterviewRoom() {
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
-            await fetch("/api/interview-room", {
+            await apiFetch("/api/interview-room", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -267,7 +373,117 @@ export default function InterviewerInterviewRoom() {
     }
   }, [sessionId, addSystemMessage, drainPendingCandidates]);
 
-  const initPeerConnection = useCallback(async () => {
+  const initLiveKit = useCallback(async (token: string, wsUrl: string, roomName: string) => {
+    try {
+      const { Room, RoomEvent, VideoPresets } = await import("livekit-client");
+      const room = new Room({
+        videoCaptureDefaults: {
+          resolution: VideoPresets.h720.resolution,
+        },
+        publishDefaults: {
+          simulcast: false,
+        }
+      });
+      lkRoomRef.current = room;
+
+      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        if (track.kind === 'video') {
+          track.attach(remoteVideoRef.current!);
+          setRemoteStream(true);
+          setConnectionStatus("connected");
+          addSystemMessage("Student connected!");
+        }
+        if (track.kind === 'audio') {
+          track.attach(remoteVideoRef.current!);
+          const mediaTrack = track.mediaStreamTrack;
+          if (mediaTrack) {
+            connectTrackToRecorder(mediaTrack, "remote-student");
+          }
+        }
+      });
+
+      room.on(RoomEvent.LocalTrackPublished, (publication) => {
+        if (publication.track?.kind === 'audio') {
+          const track = (publication.track as any).mediaStreamTrack;
+          if (track) {
+            connectTrackToRecorder(track, "local-mic");
+          }
+        }
+      });
+
+      room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+        track.detach();
+        if (track.kind === 'video') {
+          setRemoteStream(false);
+          setConnectionStatus("disconnected");
+        }
+      });
+
+      room.on(RoomEvent.ParticipantConnected, () => {
+        addSystemMessage("Student joined the room.");
+      });
+
+      room.on(RoomEvent.ParticipantDisconnected, () => {
+        addSystemMessage("Student disconnected.");
+        setRemoteStream(false);
+        setConnectionStatus("disconnected");
+      });
+
+      room.on(RoomEvent.DataReceived, (payload, participant) => {
+        try {
+          const data = JSON.parse(new TextDecoder().decode(payload));
+          if (data.text) {
+            setChatMessages((prev) => [
+              ...prev,
+              {
+                id: data.id || `lk-${Date.now()}-${Math.random()}`,
+                sender: 'student',
+                senderName: data.senderName || 'Student',
+                text: data.text,
+                timestamp: new Date(),
+              },
+            ]);
+          }
+        } catch (e) {
+          console.error("Error parsing message payload:", e);
+        }
+      });
+
+      setConnectionStatus("connecting");
+      addSystemMessage("Connecting to LiveKit room...");
+      await room.connect(wsUrl, token);
+      setConnectionStatus("connected");
+      addSystemMessage("Connected to session.");
+
+      // Publish local media
+      await room.localParticipant.enableCameraAndMicrophone();
+
+      // Find local audio track
+      const localAudioPublication = Array.from(room.localParticipant.audioTrackPublications.values()).find(
+        (pub) => pub.track?.kind === 'audio'
+      );
+      if (localAudioPublication?.track) {
+        const track = (localAudioPublication.track as any).mediaStreamTrack;
+        if (track) {
+          connectTrackToRecorder(track, "local-mic");
+        }
+      }
+
+      // Attach local track
+      const localVideoPublication = room.localParticipant.videoTrackPublications.values().next().value;
+      if (localVideoPublication?.track) {
+        localVideoPublication.track.attach(localVideoRef.current!);
+      }
+    } catch (error) {
+      console.error("LiveKit initialization failed, falling back to custom WebRTC:", error);
+      addSystemMessage("LiveKit connection failed. Falling back to default WebRTC...");
+      lkRoomRef.current = null;
+      isInitialized.current = false;
+      initCustomWebRTC();
+    }
+  }, [sessionId, addSystemMessage]);
+
+  const initCustomWebRTC = useCallback(async () => {
     if (isInitialized.current) return;
     isInitialized.current = true;
 
@@ -289,6 +505,12 @@ export default function InterviewerInterviewRoom() {
       });
       localStreamRef.current = stream;
       attachVideoStream(localVideoRef, stream);
+      
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        connectTrackToRecorder(audioTrack, "local-mic");
+      }
+
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     } catch {
       addSystemMessage(
@@ -303,6 +525,14 @@ export default function InterviewerInterviewRoom() {
         setRemoteStream(true);
         setConnectionStatus("connected");
         addSystemMessage("Student video/audio connected!");
+        
+        const remoteStreamObj = event.streams[0];
+        if (remoteStreamObj) {
+          const audioTrack = remoteStreamObj.getAudioTracks()[0];
+          if (audioTrack) {
+            connectTrackToRecorder(audioTrack, "remote-student");
+          }
+        }
       }
     };
 
@@ -333,7 +563,7 @@ export default function InterviewerInterviewRoom() {
     // Send our ICE candidates to server
     pc.onicecandidate = async (event) => {
       if (event.candidate) {
-        await fetch("/api/interview-room", {
+        await apiFetch("/api/interview-room", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -351,13 +581,39 @@ export default function InterviewerInterviewRoom() {
     pollingRef.current = setInterval(pollRoom, 1500);
   }, [sessionId, addSystemMessage, pollRoom]);
 
+  const initPeerConnection = useCallback(async () => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
+    try {
+      const tokenRes = await apiFetch(`/api/interview-room/token?sessionId=${sessionId}`);
+      const tokenData = await tokenRes.json();
+
+      if (tokenRes.ok && tokenData.token && !tokenData.fallback) {
+        await initLiveKit(tokenData.token, tokenData.wsUrl, tokenData.roomName);
+        return;
+      }
+    } catch (e) {
+      console.warn("LiveKit not configured or failed, using custom WebRTC signaling:", e);
+    }
+
+    // fallback to WebRTC
+    isInitialized.current = false; // reset for custom WebRTC to run
+    await initCustomWebRTC();
+  }, [sessionId, initLiveKit, initCustomWebRTC]);
+
   useEffect(() => {
     initPeerConnection();
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       if (behaviorTimerRef.current) clearInterval(behaviorTimerRef.current);
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
-      pcRef.current?.close();
+      if (pcRef.current && pcRef.current.signalingState !== "closed") {
+        pcRef.current.close();
+      }
+      if (lkRoomRef.current) {
+        lkRoomRef.current.disconnect();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -366,7 +622,13 @@ export default function InterviewerInterviewRoom() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  const toggleMic = () => {
+  const toggleMic = async () => {
+    if (lkRoomRef.current) {
+      const enabled = !isMicOn;
+      await lkRoomRef.current.localParticipant.setMicrophoneEnabled(enabled);
+      setIsMicOn(enabled);
+      return;
+    }
     const track = localStreamRef.current?.getAudioTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
@@ -374,7 +636,13 @@ export default function InterviewerInterviewRoom() {
     }
   };
 
-  const toggleCamera = () => {
+  const toggleCamera = async () => {
+    if (lkRoomRef.current) {
+      const enabled = !isCameraOn;
+      await lkRoomRef.current.localParticipant.setCameraEnabled(enabled);
+      setIsCameraOn(enabled);
+      return;
+    }
     const track = localStreamRef.current?.getVideoTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
@@ -387,7 +655,27 @@ export default function InterviewerInterviewRoom() {
     const text = chatInput.trim();
     setChatInput("");
 
-    const res = await fetch("/api/interview-room", {
+    if (lkRoomRef.current) {
+      const msgId = `lk-${Date.now()}-${Math.random()}`;
+      const payload = JSON.stringify({ id: msgId, text, senderName: userName });
+      await lkRoomRef.current.localParticipant.publishData(
+        new TextEncoder().encode(payload),
+        { reliable: true }
+      );
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: msgId,
+          sender: "interviewer",
+          senderName: "You",
+          text,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
+    const res = await apiFetch("/api/interview-room", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -417,7 +705,7 @@ export default function InterviewerInterviewRoom() {
   const generateAINotes = async () => {
     setGeneratingNotes(true);
     try {
-      const res = await fetch("/api/ai/notes", {
+      const res = await apiFetch("/api/ai/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -452,7 +740,7 @@ export default function InterviewerInterviewRoom() {
       const interviewerMsgs = chatMessages.filter((m) => m.sender === "interviewer");
       setLastAnalyzedCount(interviewerMsgs.length);
 
-      const res = await fetch("/api/ai/notes", {
+      const res = await apiFetch("/api/ai/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -482,12 +770,58 @@ export default function InterviewerInterviewRoom() {
   };
 
   const endCall = async () => {
-    await runBehaviorAnalysis(false);
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+
+    let audioBlob: Blob | null = null;
+    try {
+      audioBlob = await stopRecordingAndGetBlob();
+    } catch (err) {
+      console.error("Error stopping audio recorder:", err);
+    }
+
+    // Run minor conduct analysis check before closure
+    try {
+      await runBehaviorAnalysis(false);
+    } catch (err) {
+      console.error("Error running minor conduct analysis:", err);
+    }
+
     if (pollingRef.current) clearInterval(pollingRef.current);
     if (behaviorTimerRef.current) clearInterval(behaviorTimerRef.current);
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    pcRef.current?.close();
-    router.push(`/interviewer/sessions`);
+    if (pcRef.current) pcRef.current.close();
+    if (lkRoomRef.current) {
+      lkRoomRef.current.disconnect();
+    }
+
+    if (audioBlob) {
+      try {
+        console.log("🎙️ Uploading mixed audio session blob...", audioBlob.size);
+        const formData = new FormData();
+        formData.append('sessionId', sessionId);
+        formData.append('audio', audioBlob, 'interview_audio.webm');
+
+        const res = await apiFetch("/api/ai/monitor", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          console.error("AI monitor upload failed:", errData.error || res.statusText);
+        } else {
+          console.log("🎙️ Mixed audio session successfully uploaded and analyzed.");
+        }
+      } catch (err) {
+        console.error("Error uploading audio to AI monitor:", err);
+      }
+    } else {
+      console.log("No audio recorded to upload.");
+    }
+
+    setIsAnalyzing(false);
+    router.push(`/interviewer/feedback/${sessionId}`);
   };
 
   const flagColor = {
@@ -520,6 +854,20 @@ export default function InterviewerInterviewRoom() {
       className="relative flex h-[100dvh] min-h-screen bg-gray-950 text-white overflow-hidden"
       style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
     >
+      {isAnalyzing && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-950/80 backdrop-blur-md">
+          <div className="flex flex-col items-center justify-center p-8 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-w-sm text-center">
+            <svg className="animate-spin h-10 w-10 text-violet-500 mb-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <h3 className="text-lg font-bold text-white mb-2">Analyzing Session with AI</h3>
+            <p className="text-gray-400 text-sm">
+              We are transcribing the interview and generating a student report. This might take up to a minute, please don't close the browser window.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-6 py-3 bg-gray-900 border-b border-gray-800 safe-px">

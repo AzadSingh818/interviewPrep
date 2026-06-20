@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateOTP, sendVerificationEmail } from '@/lib/email';
 import {
-  checkRateLimit,
   getClientIp,
   normalizeRateLimitEmail,
   rateLimitResponse,
 } from '@/lib/rate-limit';
+import { checkRateLimitWithFallback } from '@/lib/rate-limit-redis';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,10 +15,14 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = normalizeRateLimitEmail(email);
     const clientIp = getClientIp(request);
 
-    const limit = await checkRateLimit({
-      key: `auth:resend-otp:${normalizedEmail}:${clientIp}`,
-      limit: 3,
-      windowMs: 60 * 60 * 1000,
+    const limit = await checkRateLimitWithFallback({
+      redisPrefix: 'resend-otp',
+      redisLimit: 3,
+      redisWindow: '1 h',
+      identifier: `${normalizedEmail}:${clientIp}`,
+      pgKey: `auth:resend-otp:${normalizedEmail}:${clientIp}`,
+      pgLimit: 3,
+      pgWindowMs: 60 * 60 * 1000,
     });
     if (!limit.allowed) {
       return rateLimitResponse(limit.retryAfter);

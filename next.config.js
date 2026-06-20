@@ -27,7 +27,9 @@ const nextConfig = {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
+          process.env.NODE_ENV === 'development'
+            ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com"
+            : "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https://lh3.googleusercontent.com https://res.cloudinary.com",
           "font-src 'self' data:",

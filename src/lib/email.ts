@@ -1143,3 +1143,21 @@ export async function sendManualBookingAssignedToStudent(
     console.error('❌ Failed to send assignment email:', err);
   }
 }
+
+export async function sendCustomEmail(to: string, subject: string, html: string, text?: string): Promise<void> {
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
+  try {
+    await transporter.sendMail({
+      from: `"${appName}" <${env.SMTP_USER}>`,
+      to,
+      subject,
+      html,
+      text,
+    });
+    console.log(`✅ Custom email sent to: ${to}`);
+  } catch (err) {
+    console.error('❌ Failed to send custom email:', err);
+    throw err;
+  }
+}
+

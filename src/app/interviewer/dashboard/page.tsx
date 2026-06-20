@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
+import { apiFetch } from "@/lib/api-client";
 
 // ─── Interview type display labels ────────────────────────────────────────────
 const INTERVIEW_TYPE_LABELS: Record<string, string> = {
@@ -99,7 +100,7 @@ function ProfileHeader({
     try {
       const fd = new FormData();
       fd.append("photo", file);
-      const res = await fetch("/api/interviewer/upload-profile-picture", {
+      const res = await apiFetch("/api/interviewer/upload-profile-picture", {
         method: "POST",
         body: fd,
       });
@@ -406,7 +407,7 @@ export default function InterviewerDashboardPage() {
 
   const fetchProfile = async () => {
     try {
-      const res = await fetch("/api/interviewer/profile");
+      const res = await apiFetch("/api/interviewer/profile");
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -477,7 +478,7 @@ export default function InterviewerDashboardPage() {
         .map((c) => c.trim())
         .filter(Boolean);
 
-      const res = await fetch("/api/interviewer/profile", {
+      const res = await apiFetch("/api/interviewer/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -516,7 +517,7 @@ export default function InterviewerDashboardPage() {
       const fd = new FormData();
       if (resumeFile) fd.append("resume", resumeFile);
       if (idCardFile) fd.append("idCard", idCardFile);
-      const res = await fetch("/api/interviewer/upload-documents", {
+      const res = await apiFetch("/api/interviewer/upload-documents", {
         method: "POST",
         body: fd,
       });

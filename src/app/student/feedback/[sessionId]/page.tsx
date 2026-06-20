@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { useParams } from 'next/navigation';
+import { apiFetch } from '@/lib/api-client';
 
 // ─── Star Rating Component ────────────────────────────────────────────────────
 function StarRating({
@@ -62,7 +63,7 @@ export default function StudentFeedbackPage() {
 
   const fetchFeedback = async () => {
     try {
-      const res = await fetch(`/api/feedback?sessionId=${sessionId}`);
+      const res = await apiFetch(`/api/feedback?sessionId=${sessionId}`);
       if (res.ok) {
         const data = await res.json();
         setFeedback(data.feedback);
@@ -88,7 +89,7 @@ export default function StudentFeedbackPage() {
     setRatingError('');
     setSubmittingRating(true);
     try {
-      const res = await fetch('/api/feedback', {
+      const res = await apiFetch('/api/feedback', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

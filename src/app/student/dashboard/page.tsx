@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { PaymentGate } from "@/components/shared/PaymentGate";
 import { PRO_PLAN_PRICE_DISPLAY } from "@/lib/pricing";
+import { apiFetch } from "@/lib/api-client";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -599,14 +600,14 @@ function DashboardInner() {
   };
 
   const fetchProfile = async () => {
-    const profileRes = await fetch("/api/student/profile");
+    const profileRes = await apiFetch("/api/student/profile");
     if (profileRes.ok) {
       applyProfileData(await profileRes.json());
     }
   };
 
   const fetchSessions = async () => {
-    const sessionsRes = await fetch("/api/student/sessions");
+    const sessionsRes = await apiFetch("/api/student/sessions");
     if (sessionsRes.ok) {
       const data = await sessionsRes.json();
       setSessions(data.sessions || []);
@@ -634,7 +635,7 @@ function DashboardInner() {
             : formData.targetRole,
       };
 
-      const res = await fetch("/api/student/profile", {
+      const res = await apiFetch("/api/student/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -669,7 +670,7 @@ function DashboardInner() {
     try {
       const fd = new FormData();
       fd.append("resume", file);
-      const res = await fetch("/api/student/upload-resume", {
+      const res = await apiFetch("/api/student/upload-resume", {
         method: "POST",
         body: fd,
       });
@@ -690,7 +691,7 @@ function DashboardInner() {
   const handleDeleteResume = async () => {
     setDeletingResume(true);
     try {
-      const res = await fetch("/api/student/upload-resume", {
+      const res = await apiFetch("/api/student/upload-resume", {
         method: "DELETE",
       });
       if (res.ok) {

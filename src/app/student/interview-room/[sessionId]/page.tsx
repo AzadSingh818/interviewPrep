@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
 
 interface ChatMessage {
   id: string;
@@ -42,6 +43,7 @@ export default function StudentInterviewRoom() {
   const processedMessages = useRef<Set<string>>(new Set());
   const isInitialized = useRef(false);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const lkRoomRef = useRef<any>(null);
 
   const [userName, setUserName] = useState("Student");
   const [isMicOn, setIsMicOn] = useState(true);
@@ -57,7 +59,7 @@ export default function StudentInterviewRoom() {
   >("waiting");
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    apiFetch("/api/auth/me")
       .then((r) => r.json())
       .then((data) => {
         const name =
@@ -116,7 +118,7 @@ export default function StudentInterviewRoom() {
 
   const pollRoom = useCallback(async () => {
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/interview-room?sessionId=${sessionId}&role=student`,
       );
       if (!res.ok) return;
@@ -183,7 +185,93 @@ export default function StudentInterviewRoom() {
     }
   }, [sessionId, addSystemMessage, drainPendingCandidates]);
 
-  const initPeerConnection = useCallback(async () => {
+  const initLiveKit = useCallback(async (token: string, wsUrl: string, roomName: string) => {
+    try {
+      const { Room, RoomEvent, VideoPresets } = await import("livekit-client");
+      const room = new Room({
+        videoCaptureDefaults: {
+          resolution: VideoPresets.h720.resolution,
+        },
+        publishDefaults: {
+          simulcast: false,
+        }
+      });
+      lkRoomRef.current = room;
+
+      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        if (track.kind === 'video') {
+          track.attach(remoteVideoRef.current!);
+          setRemoteStream(true);
+          setConnectionStatus("connected");
+          addSystemMessage("Interviewer connected!");
+        }
+        if (track.kind === 'audio') {
+          track.attach(remoteVideoRef.current!);
+        }
+      });
+
+      room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+        track.detach();
+        if (track.kind === 'video') {
+          setRemoteStream(false);
+          setConnectionStatus("disconnected");
+        }
+      });
+
+      room.on(RoomEvent.ParticipantConnected, () => {
+        addSystemMessage("Interviewer joined the room.");
+      });
+
+      room.on(RoomEvent.ParticipantDisconnected, () => {
+        addSystemMessage("Interviewer disconnected.");
+        setRemoteStream(false);
+        setConnectionStatus("disconnected");
+      });
+
+      room.on(RoomEvent.DataReceived, (payload, participant) => {
+        try {
+          const data = JSON.parse(new TextDecoder().decode(payload));
+          if (data.text) {
+            setChatMessages((prev) => [
+              ...prev,
+              {
+                id: data.id || `lk-${Date.now()}-${Math.random()}`,
+                sender: 'interviewer',
+                senderName: data.senderName || 'Interviewer',
+                text: data.text,
+                timestamp: new Date(),
+              },
+            ]);
+          }
+        } catch (e) {
+          console.error("Error parsing message payload:", e);
+        }
+      });
+
+      setConnectionStatus("connecting");
+      addSystemMessage("Connecting to LiveKit room...");
+      await room.connect(wsUrl, token);
+      setConnectionStatus("connected");
+      addSystemMessage("Connected to session.");
+
+      // Publish local media
+      await room.localParticipant.enableCameraAndMicrophone();
+
+      // Attach local track
+      const localVideoPublication = room.localParticipant.videoTrackPublications.values().next().value;
+      if (localVideoPublication?.track) {
+        localVideoPublication.track.attach(localVideoRef.current!);
+      }
+    } catch (error) {
+      console.error("LiveKit initialization failed, falling back to custom WebRTC:", error);
+      addSystemMessage("LiveKit connection failed. Falling back to default WebRTC...");
+      lkRoomRef.current = null;
+      isInitialized.current = false;
+      initCustomWebRTC();
+    }
+  }, [sessionId, addSystemMessage]);
+
+  const initCustomWebRTC = useCallback(async () => {
     if (isInitialized.current) return;
     isInitialized.current = true;
 
@@ -246,7 +334,7 @@ export default function StudentInterviewRoom() {
     // Send our ICE candidates to server
     pc.onicecandidate = async (event) => {
       if (event.candidate) {
-        await fetch("/api/interview-room", {
+        await apiFetch("/api/interview-room", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -267,7 +355,7 @@ export default function StudentInterviewRoom() {
       });
       await pc.setLocalDescription(offer);
 
-      await fetch("/api/interview-room", {
+      await apiFetch("/api/interview-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -288,6 +376,27 @@ export default function StudentInterviewRoom() {
     pollingRef.current = setInterval(pollRoom, 1500);
   }, [sessionId, addSystemMessage, pollRoom]);
 
+  const initPeerConnection = useCallback(async () => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
+    try {
+      const tokenRes = await apiFetch(`/api/interview-room/token?sessionId=${sessionId}`);
+      const tokenData = await tokenRes.json();
+
+      if (tokenRes.ok && tokenData.token && !tokenData.fallback) {
+        await initLiveKit(tokenData.token, tokenData.wsUrl, tokenData.roomName);
+        return;
+      }
+    } catch (e) {
+      console.warn("LiveKit not configured or failed, using custom WebRTC signaling:", e);
+    }
+
+    // fallback to WebRTC
+    isInitialized.current = false; // reset for custom WebRTC to run
+    await initCustomWebRTC();
+  }, [sessionId, initLiveKit, initCustomWebRTC]);
+
   useEffect(() => {
     initPeerConnection();
 
@@ -298,6 +407,9 @@ export default function StudentInterviewRoom() {
       if (pcRef.current && pcRef.current.signalingState !== "closed") {
         pcRef.current.close();
       }
+      if (lkRoomRef.current) {
+        lkRoomRef.current.disconnect();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -306,7 +418,13 @@ export default function StudentInterviewRoom() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  const toggleMic = () => {
+  const toggleMic = async () => {
+    if (lkRoomRef.current) {
+      const enabled = !isMicOn;
+      await lkRoomRef.current.localParticipant.setMicrophoneEnabled(enabled);
+      setIsMicOn(enabled);
+      return;
+    }
     const track = localStreamRef.current?.getAudioTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
@@ -314,7 +432,13 @@ export default function StudentInterviewRoom() {
     }
   };
 
-  const toggleCamera = () => {
+  const toggleCamera = async () => {
+    if (lkRoomRef.current) {
+      const enabled = !isCameraOn;
+      await lkRoomRef.current.localParticipant.setCameraEnabled(enabled);
+      setIsCameraOn(enabled);
+      return;
+    }
     const track = localStreamRef.current?.getVideoTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
@@ -323,6 +447,13 @@ export default function StudentInterviewRoom() {
   };
 
   const toggleScreenShare = async () => {
+    if (lkRoomRef.current) {
+      const enabled = !isScreenSharing;
+      await lkRoomRef.current.localParticipant.setScreenShareEnabled(enabled);
+      setIsScreenSharing(enabled);
+      addSystemMessage(enabled ? "Screen sharing started." : "Screen sharing stopped.");
+      return;
+    }
     if (isScreenSharing) {
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
       const videoTrack = localStreamRef.current?.getVideoTracks()[0];
@@ -373,7 +504,27 @@ export default function StudentInterviewRoom() {
     const text = chatInput.trim();
     setChatInput("");
 
-    const res = await fetch("/api/interview-room", {
+    if (lkRoomRef.current) {
+      const msgId = `lk-${Date.now()}-${Math.random()}`;
+      const payload = JSON.stringify({ id: msgId, text, senderName: userName });
+      await lkRoomRef.current.localParticipant.publishData(
+        new TextEncoder().encode(payload),
+        { reliable: true }
+      );
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: msgId,
+          sender: "student",
+          senderName: "You",
+          text,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
+    const res = await apiFetch("/api/interview-room", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -407,6 +558,9 @@ export default function StudentInterviewRoom() {
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     pcRef.current?.close();
+    if (lkRoomRef.current) {
+      lkRoomRef.current.disconnect();
+    }
     router.push("/student/sessions");
   };
 

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
 import { validatePasswordPolicy } from '@/lib/password-policy';
+import { apiFetch } from '@/lib/api-client';
 
 // ─── Dark mode hook ───────────────────────────────────────────────────────────
 function useDarkMode() {
@@ -96,7 +97,7 @@ function SettingsModal({
     if (!passwordPolicy.valid)          { setPwStatus({ type: 'error', msg: passwordPolicy.error || 'Password does not meet requirements' }); return; }
     setPwLoading(true);
     try {
-      const res = await fetch('/api/student/change-password', {
+      const res = await apiFetch('/api/student/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
@@ -120,7 +121,7 @@ function SettingsModal({
     setProfileStatus(null);
     setProfileLoading(true);
     try {
-      const res = await fetch('/api/student/profile', {
+      const res = await apiFetch('/api/student/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileForm),
@@ -358,7 +359,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
   const fetchUser = async () => {
     try {
-      const res = await fetch('/api/student/profile');
+      const res = await apiFetch('/api/student/profile');
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -369,7 +370,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
       router.push('/login/student');
     } catch (err) { console.error('Logout failed:', err); }
   };
