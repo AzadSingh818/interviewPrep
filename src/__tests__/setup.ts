@@ -13,7 +13,7 @@ process.env.CLOUDINARY_API_SECRET = 'test_api_secret';
 process.env.GOOGLE_CLIENT_ID = 'test_google_client_id';
 process.env.GOOGLE_CLIENT_SECRET = 'test_google_client_secret';
 process.env.NEXTAUTH_SECRET = 'test_nextauth_secret';
-process.env.NEXTAUTH_URL = 'http://localhost:3000';
+process.env.NEXTAUTH_URL = 'https://interview-prep-rosy-eight.vercel.app';
 process.env.SMTP_USER = 'test@example.com';
 process.env.SMTP_PASSWORD = 'test_smtp_password';
 // NODE_ENV is readonly in TypeScript but writable at runtime via defineProperty
