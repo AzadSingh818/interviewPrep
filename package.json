@@ -20,6 +20,7 @@
     "@livekit/components-styles": "^1.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@prisma/client": "^5.22.0",
+    "@sentry/nextjs": "^8.13.0",
     "@upstash/qstash": "^2.11.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",

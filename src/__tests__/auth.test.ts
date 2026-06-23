@@ -34,9 +34,12 @@ import {
   verifyToken,
   generateCsrfToken,
   authErrorStatus,
+  requireAuth,
   type JWTPayload,
 } from '@/lib/auth';
 import { rateLimitResponse } from '@/lib/rate-limit';
+import { prisma } from '@/lib/prisma';
+import { cookies, headers } from 'next/headers';
 
 // ─── JWT ──────────────────────────────────────────────────────────────────────
 
@@ -142,5 +145,35 @@ describe('rateLimitResponse', () => {
     const body = await response.json();
     expect(body).toHaveProperty('error');
     expect(body).toHaveProperty('retryAfter', 30);
+  });
+});
+
+// ─── requireAuth token invalidation ────────────────────────────────────────────
+
+describe('requireAuth tokenVersion enforcement', () => {
+  it('rejects token when DB tokenVersion has changed (logout invalidation)', async () => {
+    const token = generateToken(testPayload);
+
+    (cookies as jest.Mock).mockResolvedValue({
+      get: jest.fn().mockImplementation((name: string) => {
+        if (name === 'auth-token') return { value: token };
+        return undefined;
+      }),
+      set: jest.fn(),
+      delete: jest.fn(),
+    });
+
+    (headers as jest.Mock).mockResolvedValue({
+      get: jest.fn().mockReturnValue(null),
+    });
+
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: testPayload.userId,
+      email: testPayload.email,
+      role: testPayload.role,
+      tokenVersion: testPayload.tokenVersion + 1, // stale JWT should fail
+    });
+
+    await expect(requireAuth()).rejects.toThrow('Unauthorized');
   });
 });

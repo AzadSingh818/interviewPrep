@@ -1,10 +1,12 @@
 // src/app/api/interview-room/route.ts
 // ─── VERCEL-COMPATIBLE: Uses PostgreSQL via Prisma (no in-memory state) ───────
+// Supports both append-only SignalingEvent (new) and JSON arrays (legacy)
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { authErrorStatus, requireAuth } from '@/lib/auth';
+import { captureError } from '@/lib/monitoring';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,6 +110,31 @@ async function getOrCreateRoom(sessionId: string) {
   });
 }
 
+/**
+ * Append-only signaling event: write to SignalingEvent table
+ * (New system: immutable events instead of JSON mutations)
+ */
+async function recordSignalingEvent(
+  roomId: string,
+  eventType: 'offer' | 'answer' | 'ice-candidate' | 'message',
+  senderRole: 'student' | 'interviewer' | null,
+  payload: any
+) {
+  try {
+    return await prisma.signalingEvent.create({
+      data: {
+        roomId,
+        eventType,
+        senderRole,
+        payload,
+      },
+    });
+  } catch (error) {
+    // Silently log append failures; system falls back to legacy
+    console.error('Failed to record signaling event:', error);
+  }
+}
+
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -184,46 +211,52 @@ export async function POST(request: NextRequest) {
     switch (action) {
       // ── Student sends offer ────────────────────────────────────────────────
       case 'offer': {
-        await prisma.signalingRoom.upsert({
-          where: { id: sessionId },
-          create: {
-            id: sessionId,
-            offer,
-            answer: undefined,
-            studentCandidates: [],
-            interviewerCandidates: [],
-            messages: [],
-            offerTimestamp: BigInt(Date.now()),
-          },
-          update: {
-            offer,
-            answer: undefined,        // clear stale answer
-            studentCandidates: [],    // clear stale candidates
-            interviewerCandidates: [],
-            offerTimestamp: BigInt(Date.now()),
-            updatedAt: new Date(),
-          },
-        });
+        await Promise.all([
+          prisma.signalingRoom.upsert({
+            where: { id: sessionId },
+            create: {
+              id: sessionId,
+              offer,
+              answer: undefined,
+              studentCandidates: [],
+              interviewerCandidates: [],
+              messages: [],
+              offerTimestamp: BigInt(Date.now()),
+            },
+            update: {
+              offer,
+              answer: undefined,        // clear stale answer
+              studentCandidates: [],    // clear stale candidates
+              interviewerCandidates: [],
+              offerTimestamp: BigInt(Date.now()),
+              updatedAt: new Date(),
+            },
+          }),
+          recordSignalingEvent(sessionId, 'offer', effectiveRole, { offer }),
+        ]);
         return NextResponse.json({ success: true });
       }
 
       // ── Interviewer sends answer ───────────────────────────────────────────
       case 'answer': {
-        await prisma.signalingRoom.upsert({
-          where: { id: sessionId },
-          create: {
-            id: sessionId,
-            answer,
-            studentCandidates: [],
-            interviewerCandidates: [],
-            messages: [],
-            offerTimestamp: BigInt(0),
-          },
-          update: {
-            answer,
-            updatedAt: new Date(),
-          },
-        });
+        await Promise.all([
+          prisma.signalingRoom.upsert({
+            where: { id: sessionId },
+            create: {
+              id: sessionId,
+              answer,
+              studentCandidates: [],
+              interviewerCandidates: [],
+              messages: [],
+              offerTimestamp: BigInt(0),
+            },
+            update: {
+              answer,
+              updatedAt: new Date(),
+            },
+          }),
+          recordSignalingEvent(sessionId, 'answer', effectiveRole, { answer }),
+        ]);
         return NextResponse.json({ success: true });
       }
 
@@ -239,24 +272,30 @@ export async function POST(request: NextRequest) {
         if (effectiveRole === 'student') {
           const existing = room.studentCandidates as RTCIceCandidateInit[];
           if (!existing.some((c) => JSON.stringify(c) === key)) {
-            await prisma.signalingRoom.update({
-              where: { id: sessionId },
-              data: {
-                studentCandidates: [...existing, candidate],
-                updatedAt: new Date(),
-              },
-            });
+            await Promise.all([
+              prisma.signalingRoom.update({
+                where: { id: sessionId },
+                data: {
+                  studentCandidates: [...existing, candidate],
+                  updatedAt: new Date(),
+                },
+              }),
+              recordSignalingEvent(sessionId, 'ice-candidate', effectiveRole, { candidate }),
+            ]);
           }
         } else {
           const existing = room.interviewerCandidates as RTCIceCandidateInit[];
           if (!existing.some((c) => JSON.stringify(c) === key)) {
-            await prisma.signalingRoom.update({
-              where: { id: sessionId },
-              data: {
-                interviewerCandidates: [...existing, candidate],
-                updatedAt: new Date(),
-              },
-            });
+            await Promise.all([
+              prisma.signalingRoom.update({
+                where: { id: sessionId },
+                data: {
+                  interviewerCandidates: [...existing, candidate],
+                  updatedAt: new Date(),
+                },
+              }),
+              recordSignalingEvent(sessionId, 'ice-candidate', effectiveRole, { candidate }),
+            ]);
           }
         }
 
@@ -281,13 +320,16 @@ export async function POST(request: NextRequest) {
         const messages = parseChatMessages(room.messages);
         const updated = [...messages, message].slice(-200); // keep last 200
 
-        await prisma.signalingRoom.update({
-          where: { id: sessionId },
-          data: {
-            messages: updated as unknown as Prisma.InputJsonValue,
-            updatedAt: new Date(),
-          },
-        });
+        await Promise.all([
+          prisma.signalingRoom.update({
+            where: { id: sessionId },
+            data: {
+              messages: updated as unknown as Prisma.InputJsonValue,
+              updatedAt: new Date(),
+            },
+          }),
+          recordSignalingEvent(sessionId, 'message', effectiveRole, { message }),
+        ]);
 
         return NextResponse.json({ success: true, message });
       }

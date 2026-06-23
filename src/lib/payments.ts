@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { captureEvent } from '@/lib/monitoring';
 
 const MONTHLY_INTERVIEW_LIMIT = 10;
 const MONTHLY_GUIDANCE_LIMIT = 10;
@@ -83,6 +84,14 @@ export async function processSubscriptionPaymentCaptured(params: {
       },
     });
 
+    captureEvent('entitlement.granted', {
+      userId: current.studentId,
+      entitlementType: 'PRO_SUBSCRIPTION',
+      paymentId: params.paymentId,
+      orderId: params.orderId,
+      validUntil: validUntil.toISOString(),
+    });
+
     return {
       processed: true,
       target: 'subscription' as const,
@@ -135,6 +144,15 @@ export async function processFeatureUnlockPaymentCaptured(params: {
       data: { preferredInterviewerUnlocked: true },
     }),
   ]);
+
+  if (result[0].count > 0) {
+    captureEvent('entitlement.granted', {
+      userId: unlock.studentId,
+      entitlementType: 'PREFERRED_INTERVIEWER_UNLOCK',
+      paymentId: params.paymentId,
+      orderId: params.orderId,
+    });
+  }
 
   return {
     processed: result[0].count > 0,

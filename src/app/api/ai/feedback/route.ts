@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { fetchGroqChatCompletion, isAbortError } from '@/lib/ai/groq';
+import { captureError } from '@/lib/monitoring';
 
 function truncateForPrompt(value: unknown, maxLength = 6000): string {
   const text = String(value ?? '');
@@ -102,7 +103,11 @@ ${writtenFields ? fencedData('already_written_feedback', writtenFields, 5000) : 
 
     if (!groqRes.ok) {
       const errData = await groqRes.json();
-      console.error('Groq API error:', errData);
+      captureError(new Error(`Groq API error: ${errData?.error?.message}`), {
+        route: '/api/ai/feedback',
+        groqStatus: groqRes.status,
+        field,
+      });
       return NextResponse.json(
         { error: errData?.error?.message || 'AI call failed' },
         { status: 500 },
@@ -122,7 +127,11 @@ ${writtenFields ? fencedData('already_written_feedback', writtenFields, 5000) : 
     return NextResponse.json({ text });
 
   } catch (error: any) {
-    console.error('AI feedback generation error:', error);
+    captureError(error, {
+      route: '/api/ai/feedback',
+      errorType: isAbortError(error) ? 'timeout' : 'exception',
+    });
+    
     if (isAbortError(error)) {
       return NextResponse.json(
         { error: 'AI generation timed out. Please try again.' },

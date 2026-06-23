@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { InterviewDifficulty, InterviewType, SessionType } from '@prisma/client';
-import { sendManualBookingReceivedToStudent } from '@/lib/email';
+import { queueManualBookingReceivedToStudent } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,36 +61,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a fresh ManualBookingRequest for this booking
-    const newRequest = await prisma.manualBookingRequest.create({
-      data: {
-        studentId:              student.id,
-        preferredInterviewerId: preferredInterviewerId ? parseInt(preferredInterviewerId) : null,
-        topic:                  topic || null,
-        role:                   role || null,
-        difficulty:             difficulty as any,
-        interviewType:          interviewType as any,
-        sessionType:            sessionType as any,
-        status:                 'PENDING',
-        paymentStatus:          'PAID', // unlock already paid
-      },
-      include: {
-        studentProfile:        { include: { user: { select: { email: true, name: true } } } },
-        interviewerProfile:    { include: { user: { select: { name: true } } } },
-      },
-    });
+    const newRequest = await prisma.$transaction(async (tx) => {
+      const created = await tx.manualBookingRequest.create({
+        data: {
+          studentId:              student.id,
+          preferredInterviewerId: preferredInterviewerId ? parseInt(preferredInterviewerId) : null,
+          topic:                  topic || null,
+          role:                   role || null,
+          difficulty:             difficulty as any,
+          interviewType:          interviewType as any,
+          sessionType:            sessionType as any,
+          status:                 'PENDING',
+          paymentStatus:          'PAID', // unlock already paid
+        },
+        include: {
+          studentProfile:        { include: { user: { select: { email: true, name: true } } } },
+          interviewerProfile:    { include: { user: { select: { name: true } } } },
+        },
+      });
 
-    // Send confirmation email to student
-    try {
-      await sendManualBookingReceivedToStudent({
+      // Queue confirmation email atomically within transaction
+      await queueManualBookingReceivedToStudent({
         studentName:              student.user.name || student.name,
         studentEmail:             student.user.email,
         sessionType:              sessionType as SessionType,
-        preferredInterviewerName: newRequest.interviewerProfile?.user.name || undefined,
-        requestId:                newRequest.id,
-      });
-    } catch (e) {
-      console.error('Email send failed:', e);
-    }
+        preferredInterviewerName: created.interviewerProfile?.user.name || undefined,
+        requestId:                created.id,
+      }, { tx });
+
+      return created;
+    });
 
     return NextResponse.json({
       success: true,

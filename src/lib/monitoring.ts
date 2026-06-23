@@ -3,14 +3,12 @@
  *
  * Structured error capture + logging for InterviewPrep Live.
  *
- * Current implementation: structured JSON to console (stdout) so that
- * Vercel/Railway log aggregators can parse fields like route, userId, etc.
- *
- * To add Sentry in the future:
- *   1. `npm install @sentry/nextjs`
- *   2. Uncomment the Sentry blocks below and run `npx @sentry/wizard -i nextjs`
- *   3. Remove or keep the console fallback — they can co-exist.
+ * Sends to both:
+ *   1. Structured JSON to console (stdout) — Vercel/Railway log aggregators parse route, userId, etc.
+ *   2. Sentry (when SENTRY_AUTH_TOKEN is set) — for production error tracking and alerting
  */
+
+import * as Sentry from '@sentry/nextjs';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,14 +54,12 @@ export function captureError(error: unknown, context: ErrorContext = {}): void {
 
   console.error(JSON.stringify(entry));
 
-  // ── Sentry (uncomment after adding @sentry/nextjs) ────────────────────────
-  // import * as Sentry from '@sentry/nextjs';
-  // Sentry.withScope((scope) => {
-  //   if (userId !== undefined) scope.setUser({ id: String(userId) });
-  //   Object.entries(rest).forEach(([k, v]) => scope.setExtra(k, v));
-  //   Sentry.captureException(error);
-  // });
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Send to Sentry ────────────────────────────────────────────────────────
+  Sentry.withScope((scope) => {
+    if (userId !== undefined) scope.setUser({ id: String(userId) });
+    Object.entries(rest).forEach(([k, v]) => scope.setExtra(k, v));
+    Sentry.captureException(error);
+  });
 }
 
 /**
@@ -102,4 +98,13 @@ export function captureEvent(eventName: string, context: EventContext = {}): voi
   };
 
   console.log(JSON.stringify(entry));
+
+  // ── Send to Sentry as a custom event ───────────────────────────────────
+  Sentry.captureMessage(`[BUSINESS_EVENT] ${eventName}`, {
+    level: 'info',
+    contexts: {
+      custom: { ...rest },
+    },
+    ...(userId !== undefined && { user: { id: String(userId) } }),
+  });
 }

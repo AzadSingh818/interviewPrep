@@ -237,6 +237,19 @@ model SignalingRoom {
   @@map("signaling_rooms")
 }
 
+model SignalingEvent {
+  id         String   @id @default(cuid())
+  roomId     String   @map("room_id")
+  eventType  String   @map("event_type") // 'offer', 'answer', 'ice-candidate', 'message'
+  senderRole String?  @map("sender_role") // 'student' or 'interviewer'
+  payload    Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([roomId, createdAt])
+  @@index([createdAt])
+  @@map("signaling_events")
+}
+
 model PaymentWebhookEvent {
   id              Int       @id @default(autoincrement())
   provider        String    @default("RAZORPAY")

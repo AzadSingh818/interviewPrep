@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+
+// Sentry instrumentation (conditional)
+const withSentry = require('@sentry/nextjs').withSentryConfig;
+const { getSentryConfig } = require('./sentry.config.ts');
+
 const nextConfig = {
   experimental: {
     serverActions: {
@@ -28,12 +33,12 @@ const nextConfig = {
         value: [
           "default-src 'self'",
           process.env.NODE_ENV === 'development'
-            ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com"
-            : "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
+            ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://browser.sentry-cdn.com"
+            : "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://browser.sentry-cdn.com",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https://lh3.googleusercontent.com https://res.cloudinary.com",
           "font-src 'self' data:",
-          "connect-src 'self' https://api.groq.com https://checkout.razorpay.com https://api.razorpay.com",
+          "connect-src 'self' https://api.groq.com https://checkout.razorpay.com https://api.razorpay.com https://sentry.io",
           "frame-src https://checkout.razorpay.com https://api.razorpay.com",
           "media-src 'self' blob:",
           "object-src 'none'",
@@ -65,4 +70,13 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// Conditionally wrap with Sentry if DSN is configured
+if (getSentryConfig()) {
+  module.exports = withSentry(nextConfig, {
+    shouldAutoInstrumentAppDirectory: true,
+    autoInstrumentServerFunctions: true,
+  });
+} else {
+  module.exports = nextConfig;
+}
+

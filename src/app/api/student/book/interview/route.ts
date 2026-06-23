@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, authErrorStatus } from '@/lib/auth';
 import { PRO_PLAN_PRICE_DISPLAY } from '@/lib/pricing';
 import { InterviewType } from '@prisma/client';
-import { sendBookingConfirmationToStudent, sendBookingNotificationToInterviewer } from '@/lib/email';
+import { queueBookingConfirmationToStudent, queueBookingNotificationToInterviewer } from '@/lib/email';
 
 const MIN_REMAINDER_MINUTES = 30;
 
@@ -324,6 +324,33 @@ export async function POST(request: NextRequest) {
             });
           }
 
+          // Queue booking confirmation emails atomically within transaction
+          const emailData = {
+            sessionType: 'INTERVIEW' as const,
+            scheduledTime: sessionStart,
+            durationMinutes: duration,
+            role,
+            difficulty,
+            interviewType,
+
+            studentName:       studentProfile.name,
+            studentEmail:      studentProfile.user.email,
+            studentCollege:    studentProfile.college,
+            studentBranch:     studentProfile.branch,
+            studentTargetRole: studentProfile.targetRole,
+
+            interviewerName:              candidate.name,
+            interviewerEmail:             candidateFull.user.email,
+            interviewerCompanies:         candidateFull.companies,
+            interviewerYearsOfExperience: candidate.yearsOfExperience,
+            interviewerLinkedinUrl:       candidateFull.linkedinUrl,
+          };
+
+          await Promise.all([
+            queueBookingConfirmationToStudent(emailData, { tx }),
+            queueBookingNotificationToInterviewer(emailData, { tx }),
+          ]);
+
           return created;
         });
 
@@ -349,36 +376,6 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
-
-    const { session, winner, winnerFull, beforeMins, afterMins } = booked;
-
-    // ── Send booking confirmation emails (non-blocking) ───────────────────────
-    const emailData = {
-      sessionType: 'INTERVIEW' as const,
-      scheduledTime: sessionStart,
-      durationMinutes: duration,
-      role,
-      difficulty,
-      interviewType,
-
-      studentName:       studentProfile.name,
-      studentEmail:      studentProfile.user.email,
-      studentCollege:    studentProfile.college,
-      studentBranch:     studentProfile.branch,
-      studentTargetRole: studentProfile.targetRole,
-
-      interviewerName:              winner.name,
-      interviewerEmail:             winnerFull.user.email,
-      interviewerCompanies:         winnerFull.companies,
-      interviewerYearsOfExperience: winner.yearsOfExperience,
-      interviewerLinkedinUrl:       winnerFull.linkedinUrl,
-    };
-
-    // Fire-and-forget — don't await so the API response is instant
-    Promise.all([
-      sendBookingConfirmationToStudent(emailData),
-      sendBookingNotificationToInterviewer(emailData),
-    ]).catch(err => console.error('Email sending failed (non-critical):', err));
 
     return NextResponse.json({
       session,

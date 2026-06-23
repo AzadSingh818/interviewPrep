@@ -1186,7 +1186,7 @@ function DashboardInner() {
           </Link>
           
           <div
-            className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.03] border-2 border-slate-200 dark:border-white/10 rounded-xl hover:shadow-lg transition-all cursor-pointer group"
+            className="p-4 sm:p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.03] border-2 border-slate-200 dark:border-white/10 rounded-xl hover:shadow-lg transition-all cursor-pointer group"
             onClick={() => setShowUpgrade(true)}
           >
             <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">⭐</div>

@@ -1161,3 +1161,254 @@ export async function sendCustomEmail(to: string, subject: string, html: string,
   }
 }
 
+// ─── Queued versions: enqueue instead of direct send ─────────────────────────────
+// These functions build the same HTML/text emails but write them to the EmailJob
+// queue instead of sending synchronously. Use these in transaction contexts where
+// you want atomic booking + email queue write.
+
+export async function queueBookingConfirmationToStudent(
+  data: BookingEmailData,
+  opts?: { tx?: any }, // Optional Prisma transaction
+): Promise<void> {
+  const { enqueueEmailJob } = await import('@/lib/email-queue');
+  
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
+  const isInterview = data.sessionType === 'INTERVIEW';
+  const sessionLabel = isInterview ? 'Mock Interview' : 'Guidance Session';
+
+  const start = new Date(data.scheduledTime);
+  const end   = new Date(start.getTime() + data.durationMinutes * 60_000);
+
+  const section1Rows = isInterview
+    ? [
+        { label: 'Session Type',   value: 'Mock Interview' },
+        { label: 'Role',           value: data.role || 'General' },
+        { label: 'Difficulty',     value: data.difficulty ? capitalize(data.difficulty) : '—' },
+        { label: 'Interview Type', value: data.interviewType ? capitalize(data.interviewType) : '—' },
+        { label: 'Duration',       value: `${data.durationMinutes} minutes` },
+        { label: 'Status',         value: '✅ Confirmed', highlight: true },
+      ]
+    : [
+        { label: 'Session Type', value: 'Guidance Session' },
+        { label: 'Topic',        value: data.topic || 'General Guidance' },
+        { label: 'Duration',     value: `${data.durationMinutes} minutes` },
+        { label: 'Status',       value: '✅ Confirmed', highlight: true },
+      ];
+
+  const section2Rows: Array<{ label: string; value: string; href?: string }> = [
+    { label: 'Name', value: data.interviewerName },
+    ...(data.interviewerCompanies?.length ? [{ label: 'Companies', value: data.interviewerCompanies.join(', ') }] : []),
+    ...(data.interviewerYearsOfExperience ? [{ label: 'Experience', value: `${data.interviewerYearsOfExperience} years` }] : []),
+    ...(data.interviewerLinkedinUrl ? [{ label: 'LinkedIn', value: 'View Profile →', href: data.interviewerLinkedinUrl }] : []),
+  ];
+
+  const html = buildEmail({
+    preheader: `Your ${sessionLabel} on ${formatDateOnly(start)} is confirmed!`,
+    headerEmoji: isInterview ? '💼' : '🎓',
+    heading: 'Booking Confirmed! 🎉',
+    subheading: `Your ${sessionLabel} has been successfully scheduled.`,
+    badgeText: sessionLabel,
+    badgeBg: isInterview ? '#dbeafe' : '#ede9fe',
+    badgeFg: isInterview ? '#1e40af' : '#5b21b6',
+    dateStr: formatDateOnly(start),
+    startTimeStr: formatTimeOnly(start),
+    endTimeStr: formatTimeOnly(end),
+    section1Heading: '📋  Session Details',
+    section1Rows,
+    section2Heading: `👤  Your ${isInterview ? 'Interviewer' : 'Mentor'}`,
+    section2Rows,
+    tipText: 'Prepare well before your session! Review the topic, keep your questions ready, and join on time. You got this! 🚀',
+    footerText: 'This is an automated confirmation. Please do not reply to this email.',
+  });
+
+  const text = `Booking Confirmed!\n\n${sessionLabel}\nDate: ${formatDateOnly(start)}\nTime: ${formatTimeOnly(start)} to ${formatTimeOnly(end)}\nDuration: ${data.durationMinutes} min\n\n${isInterview ? 'Interviewer' : 'Mentor'}: ${data.interviewerName}`;
+
+  await enqueueEmailJob({
+    to: data.studentEmail,
+    subject: `✅ ${sessionLabel} Confirmed — ${formatDateOnly(start)}`,
+    html,
+    text,
+    tx: opts?.tx,
+  });
+}
+
+export async function queueBookingNotificationToInterviewer(
+  data: BookingEmailData,
+  opts?: { tx?: any }, // Optional Prisma transaction
+): Promise<void> {
+  const { enqueueEmailJob } = await import('@/lib/email-queue');
+  
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
+  const isInterview = data.sessionType === 'INTERVIEW';
+  const sessionLabel = isInterview ? 'Mock Interview' : 'Guidance Session';
+
+  const start = new Date(data.scheduledTime);
+  const end   = new Date(start.getTime() + data.durationMinutes * 60_000);
+
+  const section1Rows = isInterview
+    ? [
+        { label: 'Session Type',   value: 'Mock Interview' },
+        { label: 'Role',           value: data.role || 'General' },
+        { label: 'Difficulty',     value: data.difficulty ? capitalize(data.difficulty) : '—' },
+        { label: 'Interview Type', value: data.interviewType ? capitalize(data.interviewType) : '—' },
+        { label: 'Duration',       value: `${data.durationMinutes} minutes` },
+        { label: 'Status',         value: '✅ Confirmed', highlight: true },
+      ]
+    : [
+        { label: 'Session Type', value: 'Guidance Session' },
+        { label: 'Topic',        value: data.topic || 'General Guidance' },
+        { label: 'Duration',     value: `${data.durationMinutes} minutes` },
+        { label: 'Status',       value: '✅ Confirmed', highlight: true },
+      ];
+
+  const section2Rows = [
+    { label: 'Name',  value: data.studentName },
+    { label: 'Email', value: data.studentEmail },
+    ...(data.studentCollege    ? [{ label: 'College',      value: data.studentCollege }]    : []),
+    ...(data.studentBranch     ? [{ label: 'Branch',       value: data.studentBranch }]     : []),
+    ...(data.studentTargetRole ? [{ label: 'Target Role',  value: data.studentTargetRole }] : []),
+  ];
+
+  const html = buildEmail({
+    preheader: `New ${sessionLabel} assigned on ${formatDateOnly(start)}.`,
+    headerEmoji: '📅',
+    heading: 'New Session Assigned!',
+    subheading: `A student has booked a ${sessionLabel} with you.`,
+    badgeText: sessionLabel,
+    badgeBg: isInterview ? '#dbeafe' : '#ede9fe',
+    badgeFg: isInterview ? '#1e40af' : '#5b21b6',
+    dateStr: formatDateOnly(start),
+    startTimeStr: formatTimeOnly(start),
+    endTimeStr: formatTimeOnly(end),
+    section1Heading: '📋  Session Details',
+    section1Rows,
+    section2Heading: '🎓  Student Details',
+    section2Rows,
+    tipText: 'After the session, please submit feedback from your dashboard so the student can review their performance.',
+    footerText: 'This is an automated notification. Please do not reply to this email.',
+  });
+
+  const text = `New ${sessionLabel} Assigned!\n\nDate: ${formatDateOnly(start)}\nTime: ${formatTimeOnly(start)} to ${formatTimeOnly(end)}\nDuration: ${data.durationMinutes} min\n\nStudent: ${data.studentName} (${data.studentEmail})`;
+
+  await enqueueEmailJob({
+    to: data.interviewerEmail,
+    subject: `📅 New ${sessionLabel} — ${formatDateOnly(start)}, ${formatTimeOnly(start)}`,
+    html,
+    text,
+    tx: opts?.tx,
+  });
+}
+
+export async function queueManualBookingReceivedToStudent(
+  data: ManualBookingReceivedData,
+  opts?: { tx?: any }, // Optional Prisma transaction
+): Promise<void> {
+  const { enqueueEmailJob } = await import('@/lib/email-queue');
+  
+  const appName = getOptionalEnv('NEXT_PUBLIC_APP_NAME', 'InterviewPrep Live') || 'InterviewPrep Live';
+  const safeAppName = escapeHtml(appName);
+  const safeStudentName = escapeHtml(data.studentName);
+  const safePreferredInterviewerName = data.preferredInterviewerName
+    ? escapeHtml(data.preferredInterviewerName)
+    : '';
+  const sessionLabel = data.sessionType === 'INTERVIEW' ? 'Mock Interview' : 'Guidance Session';
+  const safeSessionLabel = escapeHtml(sessionLabel);
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#f0f0ff;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0ff;padding:48px 16px;">
+<tr><td align="center">
+<table width="580" cellpadding="0" cellspacing="0"
+  style="max-width:580px;width:100%;border-radius:24px;overflow:hidden;
+         box-shadow:0 20px 60px rgba(109,40,217,0.18);">
+  <tr><td style="height:4px;background:linear-gradient(90deg,#818cf8,#c084fc,#f472b6,#c084fc,#818cf8);"></td></tr>
+  <tr>
+    <td style="background:linear-gradient(140deg,#3730a3,#6d28d9,#7c3aed);
+               padding:36px 48px 28px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:24px;font-weight:900;color:#ffffff;">
+        InterviewPrep<span style="color:#c4b5fd;">Live</span>
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#ffffff;padding:44px 48px;text-align:center;">
+      <p style="font-size:40px;margin:0 0 8px;">📬</p>
+      <h1 style="margin:0 0 12px;font-size:24px;font-weight:900;color:#1e1b4b;">
+        Request Received!
+      </h1>
+      <p style="font-size:15px;color:#4b5563;line-height:1.7;margin:0 0 28px;">
+        Hi <strong>${safeStudentName}</strong>, your <strong>${safeSessionLabel}</strong> request
+        has been received. Our admin team will review and assign the best interviewer for you shortly.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+        style="border:1px solid #ede9fe;border-radius:12px;overflow:hidden;margin-bottom:28px;">
+        <tr>
+          <td style="padding:14px 20px;background:#f8faff;font-size:13px;color:#6b7280;
+                     width:40%;border-right:1px solid #ede9fe;border-bottom:1px solid #ede9fe;">
+            Request ID
+          </td>
+          <td style="padding:14px 20px;background:#f8faff;font-size:14px;
+                     color:#111827;font-weight:700;border-bottom:1px solid #ede9fe;">
+            #${data.requestId}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:14px 20px;background:#fff;font-size:13px;color:#6b7280;
+                     border-right:1px solid #ede9fe;border-bottom:1px solid #ede9fe;">
+            Session Type
+          </td>
+          <td style="padding:14px 20px;background:#fff;font-size:14px;
+                     color:#111827;font-weight:700;border-bottom:1px solid #ede9fe;">
+            ${safeSessionLabel}
+          </td>
+        </tr>
+        ${data.preferredInterviewerName ? `
+        <tr>
+          <td style="padding:14px 20px;background:#f8faff;font-size:13px;color:#6b7280;
+                     border-right:1px solid #ede9fe;">
+            Preferred Interviewer
+          </td>
+          <td style="padding:14px 20px;background:#f8faff;font-size:14px;
+                     color:#111827;font-weight:700;">
+            ${safePreferredInterviewerName}
+          </td>
+        </tr>` : ''}
+      </table>
+      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;
+                  padding:16px 20px;text-align:left;margin-bottom:28px;">
+        <p style="margin:0;font-size:13px;color:#92400e;line-height:1.6;">
+          ⏳ <strong>What's next?</strong> Our admin will assign you a company-specific interviewer
+          and you'll receive another email with all the session details. This usually takes
+          a few hours.
+        </p>
+      </div>
+      <p style="font-size:13px;color:#9ca3af;margin:0;">
+        This is an automated email. Please do not reply.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#1e1b4b;padding:20px 48px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);">
+        © ${new Date().getFullYear()} ${safeAppName}. All rights reserved.
+      </p>
+    </td>
+  </tr>
+</table>
+</td></tr></table>
+</body>
+</html>`;
+
+  const text = `Hi ${data.studentName},\n\nYour ${sessionLabel} request (#${data.requestId}) has been received. Admin will assign your interviewer shortly and you'll receive another email.\n\nThank you,\n${appName}`;
+
+  await enqueueEmailJob({
+    to: data.studentEmail,
+    subject: `📬 Request Received — Admin Will Assign Your Interviewer Soon`,
+    html,
+    text,
+    tx: opts?.tx,
+  });
+}
+
