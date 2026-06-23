@@ -1,19 +1,19 @@
 /**
- * sentry.config.ts
+ * sentry.config.js
  *
  * Sentry configuration for InterviewPrep Live.
- * Automatically initializes on app startup when SENTRY_AUTH_TOKEN is set.
+ * Automatically initializes on app startup when SENTRY_DSN is set.
  */
 
-import { getOptionalEnv } from '@/lib/env';
-
-const SENTRY_DSN = getOptionalEnv('SENTRY_DSN', '');
+// Get SENTRY_DSN from environment variables
+// Using direct process.env to avoid import issues at build time
+const SENTRY_DSN = process.env.SENTRY_DSN || '';
 
 /**
  * Sentry configuration for Next.js
  * Returns null if SENTRY_DSN is not configured (graceful degradation)
  */
-export const getSentryConfig = () => {
+function getSentryConfig() {
   if (!SENTRY_DSN) return null;
 
   return {
@@ -49,7 +49,7 @@ export const getSentryConfig = () => {
       if (event.contexts?.custom) {
         const sensitive = ['password', 'token', 'secret', 'creditCard'];
         sensitive.forEach(field => {
-          delete (event.contexts as any).custom[field];
+          delete event.contexts.custom[field];
         });
       }
 
@@ -76,6 +76,9 @@ export const getSentryConfig = () => {
       },
     },
   };
-};
+}
 
-export const sentryConfig = getSentryConfig();
+module.exports = {
+  getSentryConfig,
+  sentryConfig: getSentryConfig(),
+};

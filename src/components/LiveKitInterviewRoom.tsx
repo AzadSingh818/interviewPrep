@@ -12,8 +12,6 @@ import { useEffect, useRef, useState, useCallback, type RefObject } from 'react'
 import {
   LiveKitRoom,
   VideoConference,
-  GridLayout,
-  ParticipantTile,
   RoomAudioRenderer,
   ControlBar,
   useTracks,
@@ -34,17 +32,13 @@ interface LiveKitInterviewRoomProps {
 }
 
 /**
- * Simplified video layout component
+ * Simplified video layout - use VideoConference from LiveKit
+ * which handles participant grid automatically
  */
-function ParticipantGrid({ participants }: { participants: any[] }) {
-  const videoRef = useRef<HTMLDivElement>(null);
-
+function VideoLayout() {
   return (
-    <div
-      ref={videoRef}
-      className="w-full h-full bg-gray-900 rounded-lg overflow-hidden"
-    >
-      <GridLayout tracks={participants.map((p) => ({ participant: p }))} />
+    <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden">
+      <VideoConference />
     </div>
   );
 }
@@ -139,13 +133,12 @@ export default function LiveKitInterviewRoom({
           audio={true}
           token={token}
           serverUrl={wsUrl}
-          roomName={roomName}
           onConnected={handleConnected}
           onDisconnected={handleDisconnected}
           onError={handleError}
           className="w-full h-full"
         >
-          <VideoConference />
+          <VideoLayout />
           <RoomAudioRenderer />
           <ControlBar />
         </LiveKitRoom>

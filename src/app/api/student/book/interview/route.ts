@@ -378,15 +378,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      session,
+      session: booked.session,
       assignedInterviewer: {
-        id:    winner.id,
-        name:  winner.name,
-        score: winner.score,
+        id:    booked.winner.id,
+        name:  booked.winner.name,
+        score: booked.winner.score,
       },
       slotSplit: {
-        beforeMinutesReclaimed: beforeMins >= MIN_REMAINDER_MINUTES ? Math.round(beforeMins) : 0,
-        afterMinutesReclaimed:  afterMins  >= MIN_REMAINDER_MINUTES ? Math.round(afterMins)  : 0,
+        beforeMinutesReclaimed: booked.beforeMins >= MIN_REMAINDER_MINUTES ? Math.round(booked.beforeMins) : 0,
+        afterMinutesReclaimed:  booked.afterMins  >= MIN_REMAINDER_MINUTES ? Math.round(booked.afterMins)  : 0,
       },
     });
   } catch (error: any) {

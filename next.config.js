@@ -2,7 +2,7 @@
 
 // Sentry instrumentation (conditional)
 const withSentry = require('@sentry/nextjs').withSentryConfig;
-const { getSentryConfig } = require('./sentry.config.ts');
+const { getSentryConfig } = require('./sentry.config.js');
 
 const nextConfig = {
   experimental: {
